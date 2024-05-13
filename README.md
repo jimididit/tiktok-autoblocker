@@ -1,6 +1,6 @@
-# ltes - Let Them Eat Shit
+# TikTok AutoBlocker
 
-"Let Them Eat Shit" (LTES) is a Tampermonkey script inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure.
+TikTok AutoBlocker is a Tampermonkey script inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure. "Let *__Them__* Eat Shit!"
 
 ## What the Script Does
 
@@ -12,7 +12,7 @@
 
 ### Prerequisites
 
-Before you can use the LTES script, you must install Tampermonkey. Tampermonkey is a popular userscript manager that's available as a browser extension for Chrome, Firefox, Safari, and other modern browsers.
+Before you can use the TikTok AutoBlocker script, you must install Tampermonkey. Tampermonkey is a popular userscript manager that's available as a browser extension for Chrome, Firefox, Safari, and other modern browsers.
 
 1. **Install Tampermonkey**:
    - For Chrome: Visit [Chrome Web Store - Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
@@ -21,22 +21,22 @@ Before you can use the LTES script, you must install Tampermonkey. Tampermonkey 
 
 ### Installing the Script
 
-Once Tampermonkey is installed, follow these steps to install the "Let Them Eat Shit" script:
+Once Tampermonkey is installed, follow these steps to install the TikTok AutoBlocker script:
 
 1. Open Tampermonkey in your browser and select “Create a new script”.
-2. Copy the entire script from [ltes/script.js](https://github.com/username/ltes/blob/main/script.js) (Replace 'username' with your GitHub username).
+2. Copy the entire script from [tiktok-autoblocker/script.js](https://github.com/jimididit/tiktok-autoblocker/blob/main/script.js).
 3. Paste the copied script into the new script window in Tampermonkey.
 4. Save the script by pressing `Ctrl + S` or clicking File -> Save in the script editor.
 
 ### Usage
 
-- **Add to Block List**: Navigate to any TikTok user's profile. Click the "Add to Block List" button in the upper right-hand corner of the screen to add them to your block list.
-- **Download Block List**: Click the "Download Block List" button whenever you want to download your list.
-- **Upload A Blocklist Runs The AutoBlocker**: Uploading a blocklist you created or that a friend shared with you initiates the AutoBlocker feature which blocks every user in the list.
+- **Add to Block List**: Navigate to any TikTok user's profile. Click the "Add to Block List" button in the upper right-hand corner of the screen to add them to your custom block list.
+- **Download Block List**: Click the "Download Block List" button whenever you want to download your list. Share with friends, share online, share with the world!
+- **Upload A Blocklist, Run The AutoBlocker**: Uploading a blocklist initiates the AutoBlocker feature which blocks every user in the list.
 
 ## Contribute
 
-Feel free to fork the project, submit issues, and send pull requests to enhance the functionalities of the LTES script or fix potential bugs!
+Feel free to fork the project, submit issues, and send pull requests to enhance the functionalities of the TikTok AutoBlocker script or fix potential bugs!
 
 ## License
 
@@ -44,7 +44,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) f
 
 ## Disclaimer
 
-This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of "Let Them Eat Shit".
+This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of TikTok AutoBlocker | "Let Them Eat Shit".
 
 ---
 
