@@ -24,7 +24,7 @@ Before you can use the LTES script, you must install Tampermonkey. Tampermonkey 
 Once Tampermonkey is installed, follow these steps to install the "Let Them Eat Shit" script:
 
 1. Open Tampermonkey in your browser and select “Create a new script”.
-2. Copy the entire script from [ltes/main.js](https://github.com/username/ltes/blob/main/script.js) (Replace 'username' with your GitHub username).
+2. Copy the entire script from [ltes/script.js](https://github.com/username/ltes/blob/main/script.js) (Replace 'username' with your GitHub username).
 3. Paste the copied script into the new script window in Tampermonkey.
 4. Save the script by pressing `Ctrl + S` or clicking File -> Save in the script editor.
 
