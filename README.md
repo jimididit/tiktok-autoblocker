@@ -1,4 +1,5 @@
-# TikTok AutoBlocker
+# TikTok AutoBlocker | MassBlock, Create & Share Custom BlockLists
+**COMING SOON!! Instagram AutoBlocker**
 
 TikTok AutoBlocker is a Tampermonkey script inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure. "Let *__Them__* Eat Shit!"
 
