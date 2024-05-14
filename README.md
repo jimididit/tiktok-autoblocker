@@ -49,5 +49,5 @@ This script is intended for personal use and should be used responsibly. The cre
 
 ---
 
-"The rich and powerful take what they want", but with "Let Them Eat Shit", you decide who you let into your digital world.
+"The rich and powerful take what they want", but with TikTok AutoBlocker, you decide who you let into your digital world. To the rich, I say: "Let *_Them_* Eat Shit!"
 
