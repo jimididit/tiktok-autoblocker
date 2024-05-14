@@ -1,11 +1,11 @@
 # TikTok AutoBlocker | MassBlock, Create & Share Custom BlockLists
 **COMING SOON!! Instagram AutoBlocker**
 
-TikTok AutoBlocker is a Tampermonkey script inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure. "Let *__Them__* Eat Shit!"
+TikTok AutoBlocker is a custom script that can be injected into your browser using a code injection browser addon (TamperMonkey is suggested) and is inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure, and create custom blocklists that can be shared within communities and with friends.
 
 ## What the Script Does
 
-- **Add to Block List**: When visiting a TikTok user's profile, you can click a button to add that user to your block list.
+- **Add Users to Block List**: When visiting a TikTok user's profile, you can click a button to add that user to your block list.
 - **Download Block List as TXT**: Easily download your block list at any time in a simple TXT format, making it easier to apply in different contexts or share.
 - **AutoBlocker**: Uploading a Blocklist .txt file initiates the AutoBlocker, blocking every user in the list, automagically!
 
@@ -45,7 +45,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) f
 
 ## Disclaimer
 
-This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of TikTok AutoBlocker | "Let Them Eat Shit".
+This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of TikTok AutoBlocker.
 
 ---
 
