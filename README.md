@@ -1,5 +1,5 @@
 # TikTok AutoBlocker | MassBlock, Create & Share Custom BlockLists
-**COMING SOON!! Instagram AutoBlocker**
+**COMING SOON!!**: Instagram AutoBlocker & TikTok AutoBlocker Chrome Extension
 
 TikTok AutoBlocker is a custom script that can be injected into your browser using a code injection browser addon (TamperMonkey is suggested) and is inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure, and create custom blocklists that can be shared within communities and with friends.
 
