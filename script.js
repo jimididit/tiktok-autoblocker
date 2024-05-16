@@ -9,13 +9,21 @@
 // @run-at       document-start
 // ==/UserScript==
 
+// Use of an Immediately Invoked Function Expression (IIFE) to avoid polluting the global scope.
 (function() {
-    'use strict';
+    'use strict';  // Enforcing stricter parsing and error handling in the script.
 
+    // Key to access TikTok block list in localStorage.
     const blockListKey = 'tiktokBlockList';
     console.log('Running Autoblock and Blocklist Creator Script');
+
+    // Initialize the script by checking if there's a post-navigation task to be performed.
     checkForPostNavigationTask();
 
+    /**
+     * Checks for tasks that should continue after page navigation.
+     * This typically involves continuing a blocking process that was interrupted by a page load.
+     */
     function checkForPostNavigationTask() {
         const task = JSON.parse(localStorage.getItem('autoBlock'));
         if (task) {
@@ -23,26 +31,35 @@
         }
     }
 
+    /**
+     * Perform blocking operation based on the task details.
+     * @param {Object} task - Task information including the username.
+     */
     async function performBlockOperation(task) {
+        // Check if the current location is the correct user page, if not redirect.
         if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
             window.location.href = `https://www.tiktok.com/${task.username}`;
             return;
         }
 
+        // Start the process to block a user.
         console.log('User Blocking Init');
 
+        // Wait for the "more options" button and interact with it.
         const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
         if (moreButton) {
             simulateMouseEvent(moreButton, 'mouseover');
             console.info('User-more button found, showing more options...');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
+            // Try to click the "Block" button once it appears.
             const blockButton = await waitForElement('[aria-label="Block"]', 1000);
             if (blockButton) {
                 simulateMouseEvent(blockButton, 'click');
                 console.info('Block button clicked...');
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
+                // Find and click the confirmation button in the popup.
                 const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 1000);
                 if (confirmButton) {
                     simulateMouseEvent(confirmButton, 'click');
@@ -53,9 +70,14 @@
         } else {
             console.error('No more options button found!!')
         }
+
+        // Move on to the next user in the queue.
         handleNextUser();
     }
 
+     /**
+     * Processes the next user in the queue.
+     */
     function handleNextUser() {
         const users = JSON.parse(localStorage.getItem('autoBlockQueue') || '[]');
         if (users.length > 0) {
@@ -70,6 +92,12 @@
         }
     }
 
+    /**
+     * Waits for a DOM element to appear within a specified timeout.
+     * @param {String} selector - The CSS selector of the element.
+     * @param {Number} timeout - The timeout in milliseconds.
+     * @returns {Promise<Element>} A promise that resolves with the element.
+     */
     function waitForElement(selector, timeout) {
         return new Promise((resolve, reject) => {
             const intervalTime = 100;
@@ -88,6 +116,11 @@
         });
     }
 
+    /**
+     * Simulates a mouse event on the specified element.
+     * @param {Element} element - The DOM element to target.
+     * @param {String} eventType - The type of event ('click', 'mouseover', etc.).
+     */
     function simulateMouseEvent(element, eventType) {
         console.log(`Simulating ${eventType} event`);
         const event = new MouseEvent(eventType, {
@@ -99,19 +132,21 @@
         console.log(`${eventType} event triggered`);
     }
 
+    // Initialize the user interface.
     function init() {
         const card = createCard('Block List Manager');
         addButton(card, 'Add User to Block List', addUserToBlockList);
-        addButton(card, 'Download Block List', downloadBlockList);
-        // const filenameInput = createFilenameInput(card);
+        addButton(card, 'Download Block List', downloadBlock List);
         createFileInput(card);
     }
 
+    // Add buttons to the UI for user interactions like adding to the block list and downloading it.
     function addButtonFunctionality(card) {
         addButton(card, 'Add to Block List', addUserToBlockList);
         addButton(card, 'Download Block List', downloadBlockList);
     }
 
+    // Create a file input for handling block list uploads.
     function createFileInput(card) {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
@@ -121,6 +156,7 @@
         card.appendChild(fileInput);
     }
 
+    // Handle the upload of a file and process the included usernames.
     async function handleFileUpload(event) {
         const file = event.target.files[0];
         const text = await file.text();
@@ -129,6 +165,7 @@
         handleNextUser();
     }
 
+    // Create the main UI card that hosts all UI elements.
     function createCard(cardTitle) {
         const card = document.createElement('div');
         card.style.position = 'fixed';
@@ -151,7 +188,8 @@
         document.body.appendChild(card);
         return card;
     }
-
+    
+    // Add a button to the card with defined actions.
     function addButton(card, text, onClick) {
         const button = document.createElement('button');
         button.textContent = text;
@@ -167,6 +205,7 @@
         card.appendChild(button);
     }
 
+     // Initiate the download of the block list.
     function createFilenameInput(card) {
         // Divider
         const divider = document.createElement('hr');
@@ -175,7 +214,7 @@
         card.appendChild(divider);
 
         const filenameLabel = document.createElement('label');
-        filenameLabel.textContent = 'Blocklist name:';
+        filenameLabel.textContent = 'Blocklist file:';
         filenameLabel.style.display = 'block';
         filenameLabel.style.marginBottom = '5px';
         filenameLabel.style.marginTop = '5px';
@@ -183,7 +222,7 @@
         card.appendChild(filenameLabel);
     }
 
-
+    // Add current profile username to blocklist
     function addUserToBlockList() {
         const username = window.location.pathname.split('/')[1];
         const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
@@ -196,6 +235,7 @@
         }
     }
 
+    // Download blocklist as TXT file
     function downloadBlockList() {
         const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
         //const filename = filenameInput.value.trim();
@@ -210,5 +250,6 @@
         URL.revokeObjectURL(url);
     }
 
+    // Call init function to initialize interface
     init();
 })();
