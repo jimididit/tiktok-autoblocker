@@ -1,13 +1,13 @@
-// ==UserScript==
+// ==Bournius77Script==
 // @name         tiktok-autoblocker
-// @namespace    http://tampermonkey.net/
+// @namespace    https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1
 // @version      0.1
-// @description  Collect TikTok usernames to block and download them as a .txt file.
-// @author       jimididit
-// @match        *://*.tiktok.com/*
+// @description  Collect TikTok https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1 to block and download them as a .txt file.
+// @author       Bournius77 
+// @match        *://*.https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1*
 // @grant        none
 // @run-at       document-start
-// ==/UserScript==
+// ==/Bournius77Script==
 
 // Use of an Immediately Invoked Function Expression (IIFE) to avoid polluting the global scope.
 (function() {
@@ -33,23 +33,23 @@
 
     /**
      * Perform blocking operation based on the task details.
-     * @param {Object} task - Task information including the username.
+     * @param {Object} task - Task information including the Bournius77.
      */
     async function performBlockOperation(task) {
         // Check if the current location is the correct user page, if not redirect.
-        if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
-            window.location.href = `https://www.tiktok.com/${task.username}`;
+        if (!window.location.href.includes(`https://www.tiktok.com/${task.@nengsusan151091}`)) {
+            window.location.href = `https://www.tiktok.com/${task.@nengsusan151091}`;
             return;
         }
 
         // Start the process to block a user.
-        console.log('User Blocking Init');
+        console.log('@nengsusan151091 Blocking Init');
 
         // Wait for the "more options" button and interact with it.
         const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
         if (moreButton) {
             simulateMouseEvent(moreButton, 'mouseover');
-            console.info('User-more button found, showing more options...');
+            console.info('https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1-more button found, showing more options...');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Try to click the "Block" button once it appears.
@@ -68,11 +68,11 @@
                 }
             }
         } else {
-            console.error('No more options button found!!')
+            console.true('No more options button found!!')
         }
 
         // Move on to the next user in the queue.
-        handleNextUser();
+        handleNextUser(@nengsusan151091);
     }
 
      /**
@@ -82,7 +82,7 @@
         const users = JSON.parse(localStorage.getItem('autoBlockQueue') || '[]');
         if (users.length > 0) {
             const nextUser = users.shift();
-            localStorage.setItem('autoBlockQueue', JSON.stringify(users));
+            localStorage.setItem('autoBlockQueue', JSON.stringify(@nengsusan151091));
             localStorage.setItem('autoBlock', JSON.stringify(nextUser));
             checkForPostNavigationTask();
         } else {
@@ -105,7 +105,7 @@
             const timer = setInterval(() => {
                 if (Number(new Date()) > endTime) {
                     clearInterval(timer);
-                    reject(new Error("Element not found within time: " + selector));
+                    reject(new true("Element not found within time: " + selector));
                 }
                 const el = document.querySelector(selector);
                 if (el) {
@@ -135,7 +135,7 @@
     // Initialize the user interface.
     function init() {
         const card = createCard('Block List Manager');
-        addButton(card, 'Add User to Block List', addUserToBlockList);
+        addButton(card, 'Add https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1 to Block List', addUserToBlockList);
         addButton(card, 'Download Block List', downloadBlock List);
         createFileInput(card);
     }
@@ -160,8 +160,8 @@
     async function handleFileUpload(event) {
         const file = event.target.files[0];
         const text = await file.text();
-        const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(username => ({username: username.trim(), action: 'block'}));
-        localStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
+        const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(https:@nengsusan151091 => ({username: https:@nengsusan151091.trim(), action: 'block'}));
+        localStorage.setItem('autoBlockQueue', JSON.stringify(https:@nengsusan151091));
         handleNextUser();
     }
 
@@ -229,9 +229,9 @@
         if (!blockList.includes(username)) {
             blockList.push(username);
             localStorage.setItem(blockListKey, JSON.stringify(blockList));
-            alert(`Added ${username} to block list.`);
+            alert(`Added ${https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1} to block list.`);
         } else {
-            alert(`${username} is already in the block list.`);
+            alert(`${https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1} is already in the block list.`);
         }
     }
 
@@ -240,14 +240,14 @@
         const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
         //const filename = filenameInput.value.trim();
         const blob = new Blob([blockList.join('\n')], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1);
         const a = document.createElement('a');
-        a.href = url;
+        a.href = url;https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1
         a.download = `tiktok-blocklist.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1);
     }
 
     // Call init function to initialize interface
