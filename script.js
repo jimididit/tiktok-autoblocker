@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
-// @namespace    http://tampermonkey.net/
+// @namespace    https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1
 // @version      0.1
 // @description  Collect TikTok usernames to block and download them as a .txt file.
 // @author       jimididit
@@ -37,8 +37,8 @@
      */
     async function performBlockOperation(task) {
         // Check if the current location is the correct user page, if not redirect.
-        if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
-            window.location.href = `https://www.tiktok.com/${task.username}`;
+        if (!window.location.href.includes(`https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1${task.username}`)) {
+            window.location.href = `https://www.tiktok.com/@nengsusan151091_sp?_t=ZS-8skVcZdMG1q&_r=1${task.username}`;
             return;
         }
 
