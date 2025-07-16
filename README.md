@@ -68,7 +68,3 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) f
 ## Disclaimer
 
 This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of TikTok AutoBlocker.
-
----
-
-"The rich and powerful take what they want", but with TikTok AutoBlocker, you decide who you let into your digital world. To the rich, I say: "Let *Them* Eat Shit!"
