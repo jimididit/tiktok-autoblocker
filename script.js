@@ -45,34 +45,273 @@
         // Start the process to block a user.
         console.log('User Blocking Init');
 
-        // Wait for the "more options" button and interact with it.
-        const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
-        if (moreButton) {
-            simulateMouseEvent(moreButton, 'mouseover');
-            console.info('User-more button found, showing more options...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait a bit for the page to load
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-            // Try to click the "Block" button once it appears.
-            const blockButton = await waitForElement('[aria-label="Block"]', 1000);
-            if (blockButton) {
-                simulateMouseEvent(blockButton, 'click');
-                console.info('Block button clicked...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
+        // Check if the account is accessible
+        const isAccessible = await checkIfAccountAccessible();
+        if (!isAccessible) {
+            console.warn(`Account ${task.username} is not accessible (deleted, banned, or not found)`);
+            updateStatus(`Account ${task.username} not accessible - added to blocklist`, 'warning');
+            // Add to block list anyway and move to next user
+            addUsernameToBlockList(task.username);
+            handleNextUser();
+            return;
+        }
 
-                // Find and click the confirmation button in the popup.
-                const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 1000);
-                if (confirmButton) {
-                    simulateMouseEvent(confirmButton, 'click');
-                    console.info('Block confirmed...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            }
+        // Check if this is a private account
+        const isPrivateAccount = await checkIfPrivateAccount();
+        
+        if (isPrivateAccount) {
+            console.info('Private account detected, attempting alternative blocking methods...');
+            updateStatus(`Processing private account: ${task.username}`, 'warning');
+            await handlePrivateAccountBlocking();
         } else {
-            console.error('No more options button found!!')
+            updateStatus(`Processing public account: ${task.username}`, 'info');
+            await handlePublicAccountBlocking();
         }
 
         // Move on to the next user in the queue.
         handleNextUser();
+    }
+
+    /**
+     * Check if the current account is private
+     * @returns {Promise<boolean>} True if the account is private
+     */
+    async function checkIfPrivateAccount() {
+        try {
+            // Look for private account indicators
+            const privateIndicators = [
+                '[data-e2e="private-account"]',
+                '.private-account',
+                '[data-e2e="user-info"] .private',
+                '.user-info .private'
+            ];
+
+            for (const selector of privateIndicators) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    console.info('Private account indicator found:', selector);
+                    return true;
+                }
+            }
+
+            // Check for "This account is private" text
+            const pageText = document.body.textContent.toLowerCase();
+            if (pageText.includes('this account is private') || 
+                pageText.includes('private account') ||
+                pageText.includes('account is private')) {
+                console.info('Private account text found in page content');
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('Error checking if account is private:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if the account is accessible (not deleted, banned, etc.)
+     * @returns {Promise<boolean>} True if the account is accessible
+     */
+    async function checkIfAccountAccessible() {
+        try {
+            // Check for account not found indicators
+            const notFoundIndicators = [
+                '[data-e2e="user-not-found"]',
+                '.user-not-found',
+                '[data-e2e="account-not-found"]',
+                '.account-not-found'
+            ];
+
+            for (const selector of notFoundIndicators) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    console.info('Account not found indicator found:', selector);
+                    return false;
+                }
+            }
+
+            // Check for "User not found" or "Account not found" text
+            const pageText = document.body.textContent.toLowerCase();
+            if (pageText.includes('user not found') || 
+                pageText.includes('account not found') ||
+                pageText.includes('this user doesn\'t exist') ||
+                pageText.includes('couldn\'t find this account')) {
+                console.info('Account not found text found in page content');
+                return false;
+            }
+
+            // Check if we're on a valid TikTok profile page
+            const profileIndicators = [
+                '[data-e2e="user-info"]',
+                '.user-info',
+                '[data-e2e="user-avatar"]',
+                '.user-avatar'
+            ];
+
+            for (const selector of profileIndicators) {
+                const element = document.querySelector(selector);
+                if (element) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch (error) {
+            console.error('Error checking if account is accessible:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Handle blocking for private accounts
+     */
+    async function handlePrivateAccountBlocking() {
+        try {
+            // Method 1: Try to find the more options button with different selectors
+            const alternativeSelectors = [
+                '[data-e2e="user-more"]',
+                '[data-e2e="more-options"]',
+                '.more-options',
+                '.user-actions button',
+                '[aria-label="More options"]',
+                '[aria-label="More"]'
+            ];
+
+            let moreButton = null;
+            for (const selector of alternativeSelectors) {
+                try {
+                    moreButton = await waitForElement(selector, 2000);
+                    if (moreButton) {
+                        console.info('Found more options button with selector:', selector);
+                        break;
+                    }
+                } catch (error) {
+                    console.log(`Selector ${selector} not found, trying next...`);
+                }
+            }
+
+            if (moreButton) {
+                simulateMouseEvent(moreButton, 'mouseover');
+                console.info('More options button clicked for private account...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Try to find block button with various selectors
+                const blockSelectors = [
+                    '[aria-label="Block"]',
+                    '[data-e2e="block-user"]',
+                    '.block-user',
+                    'button:contains("Block")',
+                    '[data-e2e="block-popup-block-btn"]'
+                ];
+
+                let blockButton = null;
+                for (const selector of blockSelectors) {
+                    try {
+                        blockButton = await waitForElement(selector, 2000);
+                        if (blockButton) {
+                            console.info('Found block button with selector:', selector);
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`Block selector ${selector} not found, trying next...`);
+                    }
+                }
+
+                if (blockButton) {
+                    simulateMouseEvent(blockButton, 'click');
+                    console.info('Block button clicked for private account...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    // Try to confirm the block
+                    const confirmSelectors = [
+                        'button[data-e2e="block-popup-block-btn"]',
+                        '[data-e2e="confirm-block"]',
+                        '.confirm-block',
+                        'button:contains("Block")',
+                        'button:contains("Confirm")'
+                    ];
+
+                    let confirmButton = null;
+                    for (const selector of confirmSelectors) {
+                        try {
+                            confirmButton = await waitForElement(selector, 2000);
+                            if (confirmButton) {
+                                console.info('Found confirm button with selector:', selector);
+                                break;
+                            }
+                        } catch (error) {
+                            console.log(`Confirm selector ${selector} not found, trying next...`);
+                        }
+                    }
+
+                    if (confirmButton) {
+                        simulateMouseEvent(confirmButton, 'click');
+                        console.info('Block confirmed for private account...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } else {
+                        console.warn('Could not find confirm button for private account');
+                    }
+                } else {
+                    console.warn('Could not find block button for private account');
+                }
+            } else {
+                console.warn('Could not find more options button for private account');
+                // Add to block list anyway since we can't block them directly
+                const username = window.location.pathname.split('/')[1];
+                addUsernameToBlockList(username);
+            }
+        } catch (error) {
+            console.error('Error handling private account blocking:', error);
+            // Add to block list as fallback
+            const username = window.location.pathname.split('/')[1];
+            addUsernameToBlockList(username);
+        }
+    }
+
+    /**
+     * Handle blocking for public accounts (original method)
+     */
+    async function handlePublicAccountBlocking() {
+        try {
+            // Wait for the "more options" button and interact with it.
+            const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
+            if (moreButton) {
+                simulateMouseEvent(moreButton, 'mouseover');
+                console.info('User-more button found, showing more options...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Try to click the "Block" button once it appears.
+                const blockButton = await waitForElement('[aria-label="Block"]', 1000);
+                if (blockButton) {
+                    simulateMouseEvent(blockButton, 'click');
+                    console.info('Block button clicked...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    // Find and click the confirmation button in the popup.
+                    const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 1000);
+                    if (confirmButton) {
+                        simulateMouseEvent(confirmButton, 'click');
+                        console.info('Block confirmed...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+            } else {
+                console.error('No more options button found for public account!');
+                // Add to block list as fallback
+                const username = window.location.pathname.split('/')[1];
+                addUsernameToBlockList(username);
+            }
+        } catch (error) {
+            console.error('Error handling public account blocking:', error);
+            // Add to block list as fallback
+            const username = window.location.pathname.split('/')[1];
+            addUsernameToBlockList(username);
+        }
     }
 
      /**
@@ -84,9 +323,11 @@
             const nextUser = users.shift();
             localStorage.setItem('autoBlockQueue', JSON.stringify(users));
             localStorage.setItem('autoBlock', JSON.stringify(nextUser));
+            updateStatus(`Queue: ${users.length} users remaining`, 'info');
             checkForPostNavigationTask();
         } else {
             console.log('No more users in the queue.');
+            updateStatus('Blocking complete!', 'success');
             localStorage.removeItem('autoBlockQueue');
             localStorage.removeItem('autoBlock');
         }
@@ -136,8 +377,9 @@
     function init() {
         const card = createCard('Block List Manager');
         addButton(card, 'Add User to Block List', addUserToBlockList);
-        addButton(card, 'Download Block List', downloadBlock List);
+        addButton(card, 'Download Block List', downloadBlockList);
         createFileInput(card);
+        createStatusIndicator(card);
     }
 
     // Add buttons to the UI for user interactions like adding to the block list and downloading it.
@@ -156,12 +398,56 @@
         card.appendChild(fileInput);
     }
 
+    // Create a status indicator for showing blocking progress
+    function createStatusIndicator(card) {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'block-status';
+        statusDiv.style.marginTop = '10px';
+        statusDiv.style.padding = '8px';
+        statusDiv.style.backgroundColor = '#f0f0f0';
+        statusDiv.style.borderRadius = '4px';
+        statusDiv.style.fontSize = '12px';
+        statusDiv.style.textAlign = 'center';
+        statusDiv.style.display = 'none';
+        statusDiv.textContent = 'Ready';
+        card.appendChild(statusDiv);
+    }
+
+    // Update the status indicator
+    function updateStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('block-status');
+        if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = message;
+            
+            // Set color based on type
+            switch(type) {
+                case 'success':
+                    statusDiv.style.backgroundColor = '#d4edda';
+                    statusDiv.style.color = '#155724';
+                    break;
+                case 'error':
+                    statusDiv.style.backgroundColor = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                    break;
+                case 'warning':
+                    statusDiv.style.backgroundColor = '#fff3cd';
+                    statusDiv.style.color = '#856404';
+                    break;
+                default:
+                    statusDiv.style.backgroundColor = '#d1ecf1';
+                    statusDiv.style.color = '#0c5460';
+            }
+        }
+    }
+
     // Handle the upload of a file and process the included usernames.
     async function handleFileUpload(event) {
         const file = event.target.files[0];
         const text = await file.text();
         const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(username => ({username: username.trim(), action: 'block'}));
         localStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
+        updateStatus(`Loaded ${usernames.length} usernames for blocking`, 'info');
         handleNextUser();
     }
 
@@ -229,9 +515,23 @@
         if (!blockList.includes(username)) {
             blockList.push(username);
             localStorage.setItem(blockListKey, JSON.stringify(blockList));
-            alert(`Added ${username} to block list.`);
+            console.info(`Added ${username} to block list.`);
         } else {
-            alert(`${username} is already in the block list.`);
+            console.info(`${username} is already in the block list.`);
+        }
+    }
+
+    // Add a specific username to blocklist (for use in automation)
+    function addUsernameToBlockList(username) {
+        const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
+        if (!blockList.includes(username)) {
+            blockList.push(username);
+            localStorage.setItem(blockListKey, JSON.stringify(blockList));
+            console.info(`Added ${username} to block list.`);
+            return true;
+        } else {
+            console.info(`${username} is already in the block list.`);
+            return false;
         }
     }
 
