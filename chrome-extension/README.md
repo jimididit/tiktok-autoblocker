@@ -1,6 +1,6 @@
 # TikTok AutoBlocker Chrome Extension
 
-A powerful Chrome extension for mass blocking TikTok users with enhanced private account support, real-time status updates, and robust error handling.
+A powerful Chrome extension for mass blocking TikTok users with enhanced private account support, real-time status updates, and robust error handling. **Available on Chrome Web Store Soon!!**
 
 ## 🚀 Features
 

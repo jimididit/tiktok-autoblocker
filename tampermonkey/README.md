@@ -242,4 +242,4 @@ For support, please:
 
 1. Check the troubleshooting section above
 2. Review the console logs for error messages
-3. Open an issue on the GitHub repository with detailed information 
+3. Open an issue on the GitHub repository with detailed information
