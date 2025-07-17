@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TikTok AutoBlocker</title>
+    <style>
+        body {
+            width: 350px;
+            min-height: 400px;
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .button {
+            width: 100%;
+            padding: 12px 16px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button.primary {
+            background: #ff4757;
+            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+        }
+
+        .button.primary:hover {
+            background: #ff3742;
+            box-shadow: 0 6px 16px rgba(255, 71, 87, 0.6);
+        }
+
+        .button.secondary {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .file-input-container {
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .file-input-label:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .status.info {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+
+        .status.success {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+
+        .status.warning {
+            background: rgba(241, 196, 15, 0.2);
+            border: 1px solid rgba(241, 196, 15, 0.3);
+        }
+
+        .status.error {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .stats {
+            margin: 15px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 15px 0;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        /* Debug Toggle Styles */
+        .debug-toggle-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .debug-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .debug-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .debug-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .debug-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .debug-toggle input:checked + .debug-toggle-slider {
+            background-color: #2196F3; /* Blue color for on */
+        }
+
+        .debug-toggle input:focus + .debug-toggle-slider {
+            box-shadow: 0 0 1px #2196F3;
+        }
+
+        .debug-toggle input:checked + .debug-toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .debug-toggle-label {
+            margin-left: 10px;
+            font-size: 14px;
+            color: white;
+        }
+
+        /* Debug Features Section Styles */
+        .debug-features {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .debug-features h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .debug-section {
+            margin-bottom: 15px;
+        }
+
+        .debug-section button {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        /* Mode Toggle Styles */
+        .mode-toggle-container {
+            margin-top: 15px;
+            text-align: center;
+            position: relative;
+        }
+
+        .mode-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .mode-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .mode-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .mode-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .mode-toggle input:checked + .mode-toggle-slider {
+            background-color: #4CAF50; /* Green color for on */
+        }
+
+        .mode-toggle input:focus + .mode-toggle-slider {
+            box-shadow: 0 0 1px #4CAF50;
+        }
+
+        .mode-toggle input:checked + .mode-toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .mode-toggle-label {
+            margin-left: 10px;
+            font-size: 14px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚫 TikTok AutoBlocker</h1>
+        <p>Mass block users & create custom blocklists</p>
+    </div>
+
+    <button id="addCurrentUser" class="button primary">
+        ➕ Add Current User to Block List
+    </button>
+
+    <button id="downloadBlockList" class="button secondary">
+        📥 Download Block List
+    </button>
+
+    <!-- TODO:Clear Block List (Temporarily Disabled) -->
+    <!-- <button id="clearBlockList" class="button secondary">
+        🗑️ Clear Block List
+    </button> -->
+
+    <div class="file-input-container">
+        <label for="fileInput" class="file-input-label">
+            📁 Upload Block List (.txt)
+        </label>
+        <input type="file" id="fileInput" class="file-input" accept=".txt">
+    </div>
+
+    <!-- Unblock Mode Toggle (Temporarily Disabled)
+    <div class="mode-toggle-container">
+        <label class="mode-toggle">
+            <input type="checkbox" id="unblockModeToggle">
+            <span class="mode-toggle-slider"></span>
+            <span class="mode-toggle-label">Unblock Mode</span>
+        </label>
+    </div>
+
+    <div class="file-input-container" id="unblockFileContainer" style="display: none;">
+        <label for="unblockFileInput" class="file-input-label">
+            📁 Upload Unblock List (.txt)
+        </label>
+        <input type="file" id="unblockFileInput" class="file-input" accept=".txt">
+    </div>
+    -->
+
+    <!-- Debug Features Section (controlled by DEBUG_MODE_ENABLED) -->
+    <div id="debugFeatures" class="debug-features" style="display: none;">
+        <div class="debug-section">
+            <h3>🔍 Debug Tools</h3>
+            
+            <button id="debugPage" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
+                🔍 Debug Page Structure
+            </button>
+
+            <button id="testBlocking" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
+                🧪 Test Blocking Process
+            </button>
+
+            <button id="exportDebug" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
+                📄 Export Debug Log
+            </button>
+
+            <button id="clearDebug" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
+                🗑️ Clear Debug Log
+            </button>
+
+            <button id="clearTasks" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
+                🔄 Clear Stuck Tasks
+            </button>
+        </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="stats" class="stats">
+        <div>📊 Block List Stats</div>
+        <div id="blockCount">Loading...</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="footer">
+        <div>v0.2.0 - Private Account Support</div>
+        <div>Enhanced with real-time status updates</div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html> 

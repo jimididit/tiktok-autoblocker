@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "TikTok AutoBlocker",
+  "version": "0.2.0",
+  "description": "Mass block TikTok users and create custom blocklists. Supports private accounts and real-time status updates.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.tiktok.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.tiktok.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TikTok AutoBlocker"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+} 

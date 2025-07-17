@@ -1,70 +1,160 @@
-# TikTok AutoBlocker | MassBlock, Create & Share Custom BlockLists
+# TikTok AutoBlocker
 
-**COMING SOON!!**: Instagram AutoBlocker & TikTok AutoBlocker Chrome Extension
+A powerful tool for mass blocking TikTok users with support for both Chrome extensions and Tampermonkey scripts. Features enhanced private account detection, real-time status updates, and robust error handling.
 
-TikTok AutoBlocker is a custom script that can be injected into your browser using a code injection browser addon (TamperMonkey is suggested) and is inspired by the modern movement to block celebrities and individuals on TikTok who are perceived as out-of-touch or not contributing positively to society. This script provides an easy way to build and manage a personal block list on TikTok, empowering users to curate their digital exposure, and create custom blocklists that can be shared within communities and with friends.
+## 🚀 Features
 
-## What the Script Does
-
-- **Add Users to Block List**: When visiting a TikTok user's profile, you can click a button to add that user to your block list.
-- **Download Block List as TXT**: Easily download your block list at any time in a simple TXT format, making it easier to apply in different contexts or share.
-- **AutoBlocker**: Uploading a Blocklist .txt file initiates the AutoBlocker, blocking every user in the list, automagically!
-- **Private Account Support**: Automatically detects and handles private TikTok accounts with alternative blocking methods.
-- **Real-time Status Updates**: See live progress updates during the blocking process with color-coded status indicators.
-- **Enhanced Error Handling**: Gracefully handles deleted, banned, or inaccessible accounts without stopping the queue.
-
-## Getting Started
-
-### Prerequisites
-
-Before you can use the TikTok AutoBlocker script, you must install Tampermonkey. Tampermonkey is a popular userscript manager that's available as a browser extension for Chrome, Firefox, Safari, and other modern browsers.
-
-1. **Install Tampermonkey**:
-   - For Chrome: Visit [Chrome Web Store - Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo).
-   - For Firefox: Visit [Firefox Add-ons - Tampermonkey](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/).
-   - For Safari, Microsoft Edge, and other browsers, search for "Tampermonkey" in your browser’s extension store.
-
-### Installing the Script
-
-Once Tampermonkey is installed, follow these steps to install the TikTok AutoBlocker script:
-
-1. Open Tampermonkey in your browser and select “Create a new script”.
-2. Copy the entire script from [tiktok-autoblocker/script.js](https://github.com/jimididit/tiktok-autoblocker/blob/main/script.js).
-3. Paste the copied script into the new script window in Tampermonkey.
-4. Save the script by pressing `Ctrl + S` or clicking File -> Save in the script editor.
-
-### Usage
-
-- **Add to Block List**: Navigate to any TikTok user's profile. Click the "Add to Block List" button in the upper right-hand corner of the screen to add them to your custom block list.
-- **Download Block List**: Click the "Download Block List" button whenever you want to download your list. Share with friends, share online, share with the world!
-- **Upload A Blocklist, Run The AutoBlocker**: Uploading a blocklist initiates the AutoBlocker feature which blocks every user in the list.
+### Core Functionality
+- **Mass Blocking**: Upload text files with usernames and automatically block them all
+- **Private Account Support**: Automatically detects and handles private TikTok accounts
+- **Real-time Status Updates**: Live progress feedback during blocking operations
+- **Enhanced Error Handling**: Gracefully handles deleted, banned, or inaccessible accounts
+- **Block List Management**: Add users, download blocklists, and upload existing lists
 
 ### Advanced Features
+- **3-Step Blocking Process**: Reliable blocking sequence that works with TikTok's current interface
+- **Account Accessibility Detection**: Smart detection of accessible vs. inaccessible accounts
+- **Multiple URL Pattern Support**: Handles various TikTok URL formats
+- **Comprehensive Logging**: Detailed console output for debugging and monitoring
+- **Queue Management**: Robust task queue system for processing large lists
 
-- **Private Account Handling**: The script automatically detects private accounts and uses alternative blocking methods. If direct blocking fails, users are still added to your blocklist.
-- **Status Monitoring**: Watch real-time progress updates in the UI showing current user being processed, queue status, and completion messages.
-- **Queue Management**: The script processes your entire blocklist queue even if some accounts fail, with detailed logging for troubleshooting.
-- **Account Accessibility**: Automatically detects and handles deleted, banned, or non-existent accounts without interrupting the blocking process.
+## 📁 Project Structure
 
-## Recent Updates
+```
+tiktok-autoblocker/
+├── chrome-extension/          # Chrome extension version
+│   ├── manifest.json         # Extension configuration
+│   ├── content.js           # Content script for TikTok pages
+│   ├── popup.html          # Popup interface
+│   ├── popup.js            # Popup logic
+│   ├── background.js       # Background service worker
+│   ├── icons/              # Extension icons
+│   ├── README.md           # Chrome extension documentation
+│   └── INSTALL.md          # Installation guide
+├── tampermonkey/            # Tampermonkey script version
+│   ├── script.js           # Main Tampermonkey script
+│   ├── README.md           # Tampermonkey documentation
+│   └── test-blocklist.txt  # Test blocklist file
+├── test-blocklist.txt      # Sample blocklist for testing
+└── README.md              # This file
+```
 
-### v0.2 - Private Account Support & Enhanced UI
+## 🛠️ Installation Options
 
-- ✅ **Private Account Detection**: Automatically identifies private TikTok accounts
-- ✅ **Alternative Blocking Methods**: Uses multiple fallback strategies for private accounts
-- ✅ **Real-time Status Updates**: Color-coded progress indicators in the UI
-- ✅ **Enhanced Error Handling**: Graceful handling of deleted/banned accounts
-- ✅ **Improved Queue Management**: Better logging and status tracking
-- ✅ **Account Accessibility Checks**: Prevents script from getting stuck on invalid accounts
+### Option 1: Chrome Extension (Recommended)
+- **Pros**: Modern UI, integrated popup, persistent storage
+- **Cons**: Requires Chrome browser
+- **Installation**: See [Chrome Extension README](chrome-extension/README.md)
 
-## Contribute
+### Option 2: Tampermonkey Script
+- **Pros**: Works in any browser with Tampermonkey, lightweight
+- **Cons**: Requires Tampermonkey extension
+- **Installation**: See [Tampermonkey README](tampermonkey/README.md)
 
-Feel free to fork the project, submit issues, and send pull requests to enhance the functionalities of the TikTok AutoBlocker script or fix potential bugs!
+## 📋 Usage
 
-## License
+### File Format
+Your blocklist text file should contain usernames, one per line:
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) file for details.
+```txt
+@kimkardashian
+@diddy
+@jlo
+@username1
+@username2
+```
 
-## Disclaimer
+### Basic Workflow
+1. **Create a blocklist**: Add usernames to a text file
+2. **Upload the file**: Use the upload feature in either version
+3. **Monitor progress**: Watch real-time status updates
+4. **Download results**: Save your blocklist for future use
 
-This script is intended for personal use and should be used responsibly. The creator of this script is not responsible for any misuse or consequences arising from the use of TikTok AutoBlocker.
+## 🔧 Technical Details
+
+### Blocking Process
+The tool uses a sophisticated 3-step blocking sequence:
+
+1. **Click "More" button** (`[data-e2e="user-more"]`)
+2. **Click "Block" option** (`div[role="button"][aria-label="Block"]`)
+3. **Confirm blocking** (`button[data-e2e="block-popup-block-btn"]`)
+
+### Private Account Detection
+Advanced detection for private accounts:
+- DOM element indicators (`[data-e2e="private-account"]`)
+- Text content analysis ("This account is private")
+- User subtitle detection ("Private🦈")
+- Multiple fallback strategies
+
+### Error Handling
+- **Inaccessible accounts**: Automatically skipped with logging
+- **Failed blocking**: Added to blocklist as fallback
+- **Network issues**: Retry mechanisms and graceful degradation
+- **Queue management**: Continues processing even if some accounts fail
+
+## 🎯 Version History
+
+### v0.3.0 (Current)
+- ✅ Enhanced private account detection
+- ✅ Improved 3-step blocking sequence
+- ✅ Better error handling and accessibility checks
+- ✅ Multiple URL pattern support
+- ✅ Comprehensive logging and debugging
+- ✅ Robust queue management
+- ✅ Real-time status updates
+
+### v0.2.0
+- ✅ Private account support
+- ✅ Real-time status updates
+- ✅ Enhanced error handling
+- ✅ Modern UI design
+
+### v0.1.0
+- ✅ Basic blocking functionality
+- ✅ File upload/download
+- ✅ Simple UI
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Script not appearing on TikTok pages:**
+- Check if Tampermonkey is installed and enabled
+- Verify the script is enabled in Tampermonkey dashboard
+- Check browser console for error messages
+
+**Blocking not working:**
+- Ensure you're on a TikTok profile page
+- Check console logs for detailed error information
+- Try the debug features to analyze page structure
+
+**Extension errors:**
+- Reload the extension in `chrome://extensions/`
+- Check for syntax errors in console
+- Verify all files are present in the extension folder
+
+### Debug Features
+Both versions include comprehensive debugging:
+- Page structure analysis
+- Step-by-step blocking tests
+- Debug log export
+- Real-time status monitoring
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## ⚠️ Disclaimer
+
+This tool is intended for personal use and should be used responsibly. The creators are not responsible for any misuse or consequences arising from the use of this tool. Please respect TikTok's terms of service and use this tool ethically.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+
+## 📞 Support
+
+For support, please:
+1. Check the troubleshooting section above
+2. Review the console logs for error messages
+3. Open an issue on the GitHub repository with detailed information
