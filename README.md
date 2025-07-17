@@ -24,21 +24,21 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 
 ```text
 tiktok-autoblocker/
-├── chrome-extension/          # Chrome extension version
-│   ├── manifest.json         # Extension configuration
-│   ├── content.js           # Content script for TikTok pages
+├── chrome-extension/       # Chrome extension version
+│   ├── manifest.json       # Extension configuration
+│   ├── content.js          # Content script for TikTok pages
 │   ├── popup.html          # Popup interface
 │   ├── popup.js            # Popup logic
 │   ├── background.js       # Background service worker
 │   ├── icons/              # Extension icons
 │   ├── README.md           # Chrome extension documentation
 │   └── INSTALL.md          # Installation guide
-├── tampermonkey/            # Tampermonkey script version
+├── tampermonkey/           # Tampermonkey script version
 │   ├── script.js           # Main Tampermonkey script
 │   ├── README.md           # Tampermonkey documentation
 │   └── test-blocklist.txt  # Test blocklist file
-├── test-blocklist.txt      # Sample blocklist for testing
-└── README.md              # This file
+├── README.md               # This file
+└── test-blocklist.txt      # Sample blocklist for testing
 ```
 
 ## 🛠️ Installation Options
@@ -138,6 +138,7 @@ Advanced detection for private accounts:
 - Check browser console for error messages
 
 **Blocking not working:**
+
 - Ensure you're on a TikTok profile page
 
 - Check console logs for detailed error information
