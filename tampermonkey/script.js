@@ -116,7 +116,7 @@
                 return true;
             }
 
-            // Check for private account in user subtitle (like "Private🦈")
+            // Check for private account in user subtitle (like "Private")
             const userSubtitle = document.querySelector('[data-e2e="user-subtitle"]');
             if (userSubtitle && userSubtitle.textContent.toLowerCase().includes('private')) {
                 console.info('Private account indicator found in user subtitle');

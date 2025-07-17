@@ -92,7 +92,7 @@ Advanced detection for private accounts:
 
 - DOM element indicators (`[data-e2e="private-account"]`)
 - Text content analysis ("This account is private")
-- User subtitle detection ("Private🦈")
+- User subtitle detection ("Private")
 - Multiple fallback strategies
 
 ### Error Handling
