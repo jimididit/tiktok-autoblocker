@@ -13,9 +13,7 @@ console.log('Current URL:', window.location.href);
 console.log('Page title:', document.title);
 
 // Key to access TikTok block list in chrome.storage
-if (typeof blockListKey === 'undefined') {
-    const blockListKey = 'tiktokBlockList';
-}
+const blockListKey = 'tiktokBlockList';
 
 // Debug logging system
 let debugLog;
