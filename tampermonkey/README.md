@@ -5,6 +5,7 @@ A powerful Tampermonkey script for mass blocking TikTok users with enhanced priv
 ## 🚀 Features
 
 ### Core Functionality
+
 - **Mass Blocking**: Upload text files with usernames and automatically block them all
 - **Private Account Support**: Automatically detects and handles private TikTok accounts
 - **Real-time Status Updates**: Live progress feedback during blocking operations
@@ -12,6 +13,7 @@ A powerful Tampermonkey script for mass blocking TikTok users with enhanced priv
 - **Block List Management**: Add users, download blocklists, and upload existing lists
 
 ### Advanced Features
+
 - **3-Step Blocking Process**: Reliable blocking sequence that works with TikTok's current interface
 - **Account Accessibility Detection**: Smart detection of accessible vs. inaccessible accounts
 - **Multiple URL Pattern Support**: Handles various TikTok URL formats
@@ -28,16 +30,19 @@ Before you can use the TikTok AutoBlocker script, you must install Tampermonkey.
 #### Installing Tampermonkey
 
 **Chrome:**
+
 1. Visit [Chrome Web Store - Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
 2. Click "Add to Chrome"
 3. Confirm the installation
 
 **Firefox:**
+
 1. Visit [Firefox Add-ons - Tampermonkey](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
 2. Click "Add to Firefox"
 3. Confirm the installation
 
 **Other Browsers:**
+
 - Search for "Tampermonkey" in your browser's extension store
 - Follow the installation instructions for your specific browser
 
@@ -81,7 +86,8 @@ Once Tampermonkey is installed, follow these steps:
 1. **Create a blocklist file**
    - Create a text file with one username per line
    - Example format:
-     ```
+
+     ```text
      @kimkardashian
      @diddy
      @jlo
@@ -120,6 +126,7 @@ The script uses a sophisticated 3-step blocking sequence:
 ### Private Account Detection
 
 Advanced detection for private accounts:
+
 - DOM element indicators (`[data-e2e="private-account"]`)
 - Text content analysis ("This account is private")
 - User subtitle detection ("Private🦈")
@@ -135,6 +142,7 @@ Advanced detection for private accounts:
 ### URL Pattern Support
 
 The script handles various TikTok URL formats:
+
 - `/@username` (with @ symbol)
 - `/username` (without @ symbol)
 - `/user/username` (alternative format)
@@ -145,18 +153,21 @@ The script handles various TikTok URL formats:
 ### Common Issues
 
 **Script not appearing on TikTok pages:**
+
 1. Check if Tampermonkey is installed and enabled
 2. Verify the script is enabled in Tampermonkey dashboard
 3. Check browser console for error messages
 4. Try refreshing the TikTok page
 
 **Blocking not working:**
+
 1. Ensure you're on a TikTok profile page
 2. Check console logs for detailed error information
 3. Look for the red test box that appears for 5 seconds
 4. Verify the UI card appears in the top-right corner
 
 **Script not loading:**
+
 1. Check Tampermonkey dashboard for script errors
 2. Verify the script is saved and enabled
 3. Try reinstalling the script
@@ -165,6 +176,7 @@ The script handles various TikTok URL formats:
 ### Debug Information
 
 The script provides comprehensive logging:
+
 - **Console logs**: Detailed step-by-step information
 - **Status updates**: Real-time progress feedback
 - **Error messages**: Clear error reporting
@@ -173,6 +185,7 @@ The script provides comprehensive logging:
 ### Getting Help
 
 If you're still having issues:
+
 1. Check the browser console for error messages
 2. Verify Tampermonkey is working with other scripts
 3. Try disabling other browser extensions temporarily
@@ -181,6 +194,7 @@ If you're still having issues:
 ## 📈 Version History
 
 ### v0.3.0 (Current)
+
 - ✅ Enhanced private account detection
 - ✅ Improved 3-step blocking sequence
 - ✅ Better error handling and accessibility checks
@@ -191,12 +205,14 @@ If you're still having issues:
 - ✅ Cross-browser compatibility improvements
 
 ### v0.2.0
+
 - ✅ Private account support
 - ✅ Real-time status updates
 - ✅ Enhanced error handling
 - ✅ Improved UI design
 
 ### v0.1.0
+
 - ✅ Basic blocking functionality
 - ✅ File upload/download
 - ✅ Simple UI
@@ -223,6 +239,7 @@ Contributions are welcome! Please feel free to submit issues, feature requests, 
 ## 📞 Support
 
 For support, please:
+
 1. Check the troubleshooting section above
 2. Review the console logs for error messages
 3. Open an issue on the GitHub repository with detailed information 
