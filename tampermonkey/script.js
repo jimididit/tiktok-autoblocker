@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.3.0
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        *://*.tiktok.com/*
