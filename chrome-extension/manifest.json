@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TikTok AutoBlocker",
-  "version": "0.3.0",
-  "description": "Mass block TikTok users and create custom blocklists. Supports private accounts and real-time status updates.",
+  "name": "TikTok AutoBlocker - Mass Block & Share Blocklists",
+  "version": "0.4.0",
+  "description": "Mass block TikTok users. Join the block party with custom, shareable blocklists. Stay focused, safe, and in control.",
   "permissions": [
     "activeTab",
     "storage",
