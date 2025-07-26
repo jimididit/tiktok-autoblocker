@@ -42,6 +42,13 @@
      * @param {Object} task - Task information including the username.
      */
     async function performBlockOperation(task) {
+        // Task name check to protect against a recursive block check/refresh loop
+        if(task.username == "@N/A"){
+            localStorage.removeItem('autoBlock'); // Remove the stored Task since it's a broken user
+            handleNextUser(); // Force another check to ensure the queue continues if @N/A is found part way through
+            return;
+        }
+
         // Check if the current location is the correct user page, if not redirect.
         if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
             window.location.href = `https://www.tiktok.com/${task.username}`;
@@ -303,7 +310,7 @@
 
             // Step 3: Find and click the "Block" button in the confirmation modal
             console.log('🔍 Step 3: Looking for confirm button in modal...');
-            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 3000);
+            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
             if (!confirmButton) {
                 console.warn('❌ Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];
