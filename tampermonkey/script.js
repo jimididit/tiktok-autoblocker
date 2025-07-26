@@ -374,7 +374,7 @@
 
             // Step 3: Find and click the "Block" button in the confirmation modal
             console.log('🔍 Step 3: Looking for confirm button in modal...');
-            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 3000);
+            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
             if (!confirmButton) {
                 console.warn('❌ Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];

@@ -144,6 +144,15 @@ function checkForPostNavigationTask() {
 async function performBlockOperation(task) {
     console.log('🚀 performBlockOperation started for task:', task);
     
+    // Task name check to protect against a recursive block check/refresh loop
+    if(task.username == "@N/A"){
+        chrome.storage.local.remove(['autoBlock'], function() {
+            console.log('🗑️ Removed @N/A task from storage');
+            handleNextUser(); // Force another check to ensure the queue continues if @N/A is found part way through
+        });
+        return;
+    }
+    
     // Check if the current location is the correct user page, if not redirect.
     if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
         console.log('🔄 Redirecting to user page:', `https://www.tiktok.com/${task.username}`);
@@ -429,7 +438,7 @@ async function handlePrivateAccountBlocking() {
 
         // Step 3: Find and click the "Block" button in the confirmation modal
         console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 3000);
+        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
             const username = window.location.pathname.split('/')[1];
@@ -559,7 +568,7 @@ async function handlePublicAccountBlocking() {
 
         // Step 3: Find and click the "Block" button in the confirmation modal
         console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"]', 3000);
+        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
             const username = window.location.pathname.split('/')[1];
