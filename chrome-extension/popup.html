@@ -235,67 +235,7 @@
             margin-bottom: 8px;
         }
 
-        /* Mode Toggle Styles */
-        .mode-toggle-container {
-            margin-top: 15px;
-            text-align: center;
-            position: relative;
-        }
 
-        .mode-toggle {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-
-        .mode-toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .mode-toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .mode-toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        .mode-toggle input:checked + .mode-toggle-slider {
-            background-color: #4CAF50; /* Green color for on */
-        }
-
-        .mode-toggle input:focus + .mode-toggle-slider {
-            box-shadow: 0 0 1px #4CAF50;
-        }
-
-        .mode-toggle input:checked + .mode-toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        .mode-toggle-label {
-            margin-left: 10px;
-            font-size: 14px;
-            color: white;
-        }
     </style>
 </head>
 <body>
@@ -312,34 +252,12 @@
         📥 Download Block List
     </button>
 
-    <!-- TODO:Clear Block List (Temporarily Disabled) -->
-    <!-- <button id="clearBlockList" class="button secondary">
-        🗑️ Clear Block List
-    </button> -->
-
     <div class="file-input-container">
         <label for="fileInput" class="file-input-label">
             📁 Upload Block List (.txt)
         </label>
         <input type="file" id="fileInput" class="file-input" accept=".txt">
     </div>
-
-    <!-- Unblock Mode Toggle (Temporarily Disabled)
-    <div class="mode-toggle-container">
-        <label class="mode-toggle">
-            <input type="checkbox" id="unblockModeToggle">
-            <span class="mode-toggle-slider"></span>
-            <span class="mode-toggle-label">Unblock Mode</span>
-        </label>
-    </div>
-
-    <div class="file-input-container" id="unblockFileContainer" style="display: none;">
-        <label for="unblockFileInput" class="file-input-label">
-            📁 Upload Unblock List (.txt)
-        </label>
-        <input type="file" id="unblockFileInput" class="file-input" accept=".txt">
-    </div>
-    -->
 
     <!-- Debug Features Section (controlled by DEBUG_MODE_ENABLED) -->
     <div id="debugFeatures" class="debug-features" style="display: none;">
@@ -378,7 +296,7 @@
     <div class="divider"></div>
 
     <div class="footer">
-        <div>v0.2.0 - Private Account Support</div>
+        <div>v0.4.0 - Private Account Support</div>
         <div>Enhanced with real-time status updates</div>
     </div>
 

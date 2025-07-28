@@ -1,11 +1,19 @@
 // TikTok AutoBlocker Content Script
 // This script runs on TikTok pages and handles the blocking functionality
 
+// Prevent multiple executions of this script
+if (window.tiktokAutoBlockerLoaded) {
+    console.log('TikTok AutoBlocker already loaded, skipping...');
+    // Exit early to prevent re-execution
+    throw new Error('TikTok AutoBlocker already loaded');
+}
+
+// Mark as loaded to prevent re-execution
+window.tiktokAutoBlockerLoaded = true;
+
 // ===== DEVELOPER SETTINGS =====
 // Set this to true to enable debug features (only for developers with source code)
-if (typeof DEBUG_MODE_ENABLED === 'undefined') {
-    const DEBUG_MODE_ENABLED = false;
-}
+const DEBUG_MODE_ENABLED = false;
 // =============================
 
 console.log('TikTok AutoBlocker Content Script Loaded');
@@ -74,6 +82,18 @@ function clearDebugLog() {
     debugLog.length = 0;
     console.log('🗑️ Debug log cleared!');
 }
+
+// Auto-cleanup debug log to prevent memory leaks
+// Keep only the last 1000 entries
+function cleanupDebugLog() {
+    if (debugLog.length > 1000) {
+        debugLog = debugLog.slice(-1000);
+        console.log('🧹 Debug log cleaned up (kept last 1000 entries)');
+    }
+}
+
+// Set up periodic cleanup
+setInterval(cleanupDebugLog, 60000); // Clean up every minute
 
 // Function to check if debug mode is enabled
 function isDebugModeEnabled() {
@@ -461,72 +481,6 @@ async function handlePrivateAccountBlocking() {
 }
 
 /**
- * Handle unblocking for private accounts (Temporarily Disabled)
- */
-/*
-async function handlePrivateAccountUnblocking() {
-    console.log('🔒 Starting private account unblocking process...');
-    try {
-        // Step 1: Find and click the "More" button (3 dots)
-        console.log('🔍 Step 1: Looking for more options button...');
-        const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
-        if (!moreButton) {
-            console.warn('❌ Could not find more options button');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 1: Found more options button:', moreButton);
-        console.log('🖱️ Step 1: Clicking more options button...');
-        simulateMouseEvent(moreButton, 'click');
-        console.log('⏳ Step 1: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 1: Wait complete');
-
-        // Step 2: Find and click the "Unblock" option in the popover
-        console.log('🔍 Step 2: Looking for unblock option in popover...');
-        const unblockOption = await waitForElement('div[role="button"][aria-label="Unblock"]', 3000);
-        if (!unblockOption) {
-            console.warn('❌ Could not find unblock option in popover');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 2: Found unblock option:', unblockOption);
-        console.log('🖱️ Step 2: Clicking unblock option in popover...');
-        simulateMouseEvent(unblockOption, 'click');
-        console.log('⏳ Step 2: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 2: Wait complete');
-
-        // Step 3: Find and click the "Unblock" button in the confirmation modal
-        console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-unblock-btn"]', 3000);
-        if (!confirmButton) {
-            console.warn('❌ Could not find confirm button in modal');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 3: Found confirm button:', confirmButton);
-        console.log('🖱️ Step 3: Clicking unblock button in modal...');
-        simulateMouseEvent(confirmButton, 'click');
-        console.log('✅ Unblock confirmed successfully!');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-    } catch (error) {
-        console.error('❌ Error handling private account unblocking:', error);
-        // Add to block list as fallback
-        const username = window.location.pathname.split('/')[1];
-        addUsernameToBlockList(username);
-    }
-}
-*/
-
-/**
  * Handle blocking for public accounts (original method)
  */
 async function handlePublicAccountBlocking() {
@@ -589,72 +543,6 @@ async function handlePublicAccountBlocking() {
         addUsernameToBlockList(username);
     }
 }
-
-/**
- * Handle unblocking for public accounts (Temporarily Disabled)
- */
-/*
-async function handlePublicAccountUnblocking() {
-    console.log('🌐 Starting public account unblocking process...');
-    try {
-        // Step 1: Find and click the "More" button (3 dots)
-        console.log('🔍 Step 1: Looking for more options button...');
-        const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
-        if (!moreButton) {
-            console.warn('❌ Could not find more options button');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 1: Found more options button:', moreButton);
-        console.log('🖱️ Step 1: Clicking more options button...');
-        simulateMouseEvent(moreButton, 'click');
-        console.log('⏳ Step 1: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 1: Wait complete');
-
-        // Step 2: Find and click the "Unblock" option in the popover
-        console.log('🔍 Step 2: Looking for unblock option in popover...');
-        const unblockOption = await waitForElement('div[role="button"][aria-label="Unblock"]', 3000);
-        if (!unblockOption) {
-            console.warn('❌ Could not find unblock option in popover');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 2: Found unblock option:', unblockOption);
-        console.log('🖱️ Step 2: Clicking unblock option in popover...');
-        simulateMouseEvent(unblockOption, 'click');
-        console.log('⏳ Step 2: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 2: Wait complete');
-
-        // Step 3: Find and click the "Unblock" button in the confirmation modal
-        console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-unblock-btn"]', 3000);
-        if (!confirmButton) {
-            console.warn('❌ Could not find confirm button in modal');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
-            return;
-        }
-
-        console.log('✅ Step 3: Found confirm button:', confirmButton);
-        console.log('🖱️ Step 3: Clicking unblock button in modal...');
-        simulateMouseEvent(confirmButton, 'click');
-        console.log('✅ Unblock confirmed successfully!');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-    } catch (error) {
-        console.error('❌ Error handling public account unblocking:', error);
-        // Add to block list as fallback
-        const username = window.location.pathname.split('/')[1];
-        addUsernameToBlockList(username);
-    }
-}
-*/
 
 /**
  * Processes the next user in the queue.

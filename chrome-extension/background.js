@@ -48,13 +48,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 // Handle tab updates to inject content script when needed
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
     if (changeInfo.status === 'complete' && tab.url && tab.url.includes('tiktok.com')) {
-        // Ensure content script is injected
-        chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['content.js']
-        }).catch(error => {
-            console.log('Content script already injected or failed to inject:', error);
-        });
+        // Content script is already automatically injected via manifest.json
+        // No need to manually inject it again to avoid double injection
+        console.log('TikTok page loaded, content script should be active');
     }
 });
 

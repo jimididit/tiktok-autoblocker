@@ -14,11 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners
     document.getElementById('addCurrentUser').addEventListener('click', addCurrentUser);
     document.getElementById('downloadBlockList').addEventListener('click', downloadBlockList);
-    document.getElementById('clearBlockList').addEventListener('click', clearBlockList);
     document.getElementById('fileInput').addEventListener('change', handleFileUpload);
-    // Unblock mode temporarily disabled
-    // document.getElementById('unblockModeToggle').addEventListener('change', toggleUnblockMode);
-    // document.getElementById('unblockFileInput').addEventListener('change', handleUnblockFileUpload);
     
     // Add debug event listeners only if debug mode is enabled
     if (DEBUG_MODE_ENABLED) {
@@ -144,91 +140,9 @@ function handleFileUpload(event) {
     }
 }
 
-/**
- * Toggle unblock mode (Temporarily Disabled)
- */
-/*
-function toggleUnblockMode() {
-    const unblockModeToggle = document.getElementById('unblockModeToggle');
-    const unblockFileContainer = document.getElementById('unblockFileContainer');
-    const fileInputContainer = document.querySelector('.file-input-container');
-    
-    if (unblockModeToggle.checked) {
-        // Unblock mode is on
-        unblockFileContainer.style.display = 'block';
-        fileInputContainer.style.display = 'none';
-        updateStatus('Switched to Unblock Mode', 'info');
-    } else {
-        // Block mode is on
-        unblockFileContainer.style.display = 'none';
-        fileInputContainer.style.display = 'block';
-        updateStatus('Switched to Block Mode', 'info');
-    }
-}
-*/
 
-/**
- * Handle file upload for unblock list (Temporarily Disabled)
- */
-/*
-function handleUnblockFileUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const text = e.target.result;
-            const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '');
-            
-            if (usernames.length > 0) {
-                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                    const currentTab = tabs[0];
-                    if (currentTab.url && currentTab.url.includes('tiktok.com')) {
-                        chrome.tabs.sendMessage(currentTab.id, {
-                            action: 'uploadBlockList',
-                            usernames: usernames,
-                            mode: 'unblock'
-                        }, function(response) {
-                            if (response && response.success) {
-                                updateStatus(`Uploaded ${usernames.length} usernames for unblocking!`, 'success');
-                                // Clear the file input
-                                event.target.value = '';
-                            } else {
-                                updateStatus('Failed to upload unblock list.', 'error');
-                            }
-                        });
-                    } else {
-                        updateStatus('Please navigate to a TikTok page first.', 'warning');
-                    }
-                });
-            } else {
-                updateStatus('No valid usernames found in file.', 'warning');
-            }
-        };
-        reader.readAsText(file);
-    }
-}
-*/
 
-/**
- * Clear the entire block list
- */
-function clearBlockList() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-        const currentTab = tabs[0];
-        if (currentTab.url && currentTab.url.includes('tiktok.com')) {
-            chrome.tabs.sendMessage(currentTab.id, {action: 'clearBlockList'}, function(response) {
-                if (response && response.success) {
-                    updateStatus('Block list cleared!', 'success');
-                    loadBlockListStats();
-                } else {
-                    updateStatus('Failed to clear block list.', 'error');
-                }
-            });
-        } else {
-            updateStatus('Please navigate to a TikTok page first.', 'warning');
-        }
-    });
-}
+
 
 /**
  * Load and display block list statistics
