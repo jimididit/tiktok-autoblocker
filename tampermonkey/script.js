@@ -1,13 +1,10 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.4.0
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        *://*.tiktok.com/*
-// @match        *://tiktok.com/*
-// @match        https://www.tiktok.com/*
-// @match        https://tiktok.com/*
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -15,6 +12,13 @@
 // Use of an Immediately Invoked Function Expression (IIFE) to avoid polluting the global scope.
 (function() {
     'use strict';  // Enforcing stricter parsing and error handling in the script.
+
+    // Prevent multiple script executions
+    if (window.tiktokAutoBlockerLoaded) {
+        console.log('TikTok AutoBlocker already loaded, skipping...');
+        return;
+    }
+    window.tiktokAutoBlockerLoaded = true;
 
     // Key to access TikTok block list in localStorage.
     const blockListKey = 'tiktokBlockList';
