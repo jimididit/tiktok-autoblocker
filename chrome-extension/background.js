@@ -1,6 +1,6 @@
 // TikTok AutoBlocker Background Service Worker
 // Handles extension lifecycle and background tasks
-
+// TODO: Add Chrome runtime auto updating
 console.log('TikTok AutoBlocker Background Service Worker Loaded');
 
 // Handle extension installation
