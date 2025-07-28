@@ -23,6 +23,25 @@ console.log('Page title:', document.title);
 // Key to access TikTok block list in chrome.storage
 const blockListKey = 'tiktokBlockList';
 
+// Statistics tracking for the current session
+let blockingStats = {
+    total: 0,
+    blocked: 0,
+    alreadyBlocked: 0,
+    errors: 0,
+    skipped: 0
+};
+
+// Load blocking stats from storage on script initialization
+chrome.storage.local.get(['blockingStats'], function(result) {
+    if (result.blockingStats) {
+        blockingStats = result.blockingStats;
+        console.log('📊 Loaded blocking stats from storage:', blockingStats);
+    } else {
+        console.log('📊 No existing blocking stats found, starting fresh');
+    }
+});
+
 // Debug logging system
 let debugLog;
 if (typeof debugLog === 'undefined') {
@@ -164,6 +183,9 @@ function checkForPostNavigationTask() {
 async function performBlockOperation(task) {
     console.log('🚀 performBlockOperation started for task:', task);
     
+    // Increment total count for this user
+    updateBlockingStats('total');
+    
     // Task name check to protect against a recursive block check/refresh loop
     if(task.username == "@N/A"){
         chrome.storage.local.remove(['autoBlock'], function() {
@@ -199,7 +221,25 @@ async function performBlockOperation(task) {
         console.warn(`Account ${task.username} is not accessible (deleted, banned, or not found)`);
         const actionText = task.action === 'unblock' ? 'unblocking' : 'blocking';
         updateStatus(`Account ${task.username} not accessible - skipped`, 'warning');
+        updateBlockingStats('skipped');
         // Skip this user and move to next
+        handleNextUser();
+        return;
+    }
+
+    // Check if the user is already blocked
+    console.log('🔍 Checking if user is already blocked...');
+    const isAlreadyBlocked = await checkIfAlreadyBlocked();
+    console.log('📊 User already blocked:', isAlreadyBlocked);
+    
+    if (isAlreadyBlocked) {
+        console.info(`User ${task.username} is already blocked`);
+        updateStatus(`User ${task.username} is already blocked - skipped`, 'info');
+        updateBlockingStats('alreadyBlocked');
+        console.log(`📊 Updated alreadyBlocked count: ${blockingStats.alreadyBlocked}`);
+        // Add to block list as fallback to ensure it's tracked
+        addUsernameToBlockList(task.username);
+        // Move to next user
         handleNextUser();
         return;
     }
@@ -216,7 +256,7 @@ async function performBlockOperation(task) {
         // if (task.action === 'unblock') {
         //     await handlePrivateAccountUnblocking();
         // } else {
-            await handlePrivateAccountBlocking();
+            await handlePrivateAccountBlocking(task);
         // }
     } else {
         updateStatus(`Processing public account: ${task.username}`, 'info');
@@ -224,7 +264,7 @@ async function performBlockOperation(task) {
         // if (task.action === 'unblock') {
         //     await handlePublicAccountUnblocking();
         // } else {
-            await handlePublicAccountBlocking();
+            await handlePublicAccountBlocking(task);
         // }
     }
 
@@ -419,7 +459,7 @@ async function checkIfAccountAccessible() {
 /**
  * Handle blocking for private accounts
  */
-async function handlePrivateAccountBlocking() {
+async function handlePrivateAccountBlocking(task) {
     console.log('🔒 Starting private account blocking process...');
     try {
         // Step 1: Find and click the "More" button (3 dots)
@@ -427,6 +467,8 @@ async function handlePrivateAccountBlocking() {
         const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
         if (!moreButton) {
             console.warn('❌ Could not find more options button');
+            updateStatus(`Error blocking ${task.username}: Could not find more options button`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -444,6 +486,8 @@ async function handlePrivateAccountBlocking() {
         const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
         if (!blockOption) {
             console.warn('❌ Could not find block option in popover');
+            updateStatus(`Error blocking ${task.username}: Could not find block option`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -461,6 +505,8 @@ async function handlePrivateAccountBlocking() {
         const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
+            updateStatus(`Error blocking ${task.username}: Could not find confirm button`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -470,10 +516,13 @@ async function handlePrivateAccountBlocking() {
         console.log('🖱️ Step 3: Clicking block button in modal...');
         simulateMouseEvent(confirmButton, 'click');
         console.log('✅ Block confirmed successfully!');
+        updateBlockingStats('blocked');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (error) {
         console.error('❌ Error handling private account blocking:', error);
+        updateStatus(`Error blocking ${task.username}: ${error.message}`, 'error');
+        updateBlockingStats('errors');
         // Add to block list as fallback
         const username = window.location.pathname.split('/')[1];
         addUsernameToBlockList(username);
@@ -483,7 +532,7 @@ async function handlePrivateAccountBlocking() {
 /**
  * Handle blocking for public accounts (original method)
  */
-async function handlePublicAccountBlocking() {
+async function handlePublicAccountBlocking(task) {
     console.log('🌐 Starting public account blocking process...');
     try {
         // Step 1: Find and click the "More" button (3 dots)
@@ -491,6 +540,8 @@ async function handlePublicAccountBlocking() {
         const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
         if (!moreButton) {
             console.warn('❌ Could not find more options button');
+            updateStatus(`Error blocking ${task.username}: Could not find more options button`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -508,6 +559,8 @@ async function handlePublicAccountBlocking() {
         const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
         if (!blockOption) {
             console.warn('❌ Could not find block option in popover');
+            updateStatus(`Error blocking ${task.username}: Could not find block option`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -525,6 +578,8 @@ async function handlePublicAccountBlocking() {
         const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
+            updateStatus(`Error blocking ${task.username}: Could not find confirm button`, 'error');
+            updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
             return;
@@ -534,10 +589,13 @@ async function handlePublicAccountBlocking() {
         console.log('🖱️ Step 3: Clicking block button in modal...');
         simulateMouseEvent(confirmButton, 'click');
         console.log('✅ Block confirmed successfully!');
+        updateBlockingStats('blocked');
         await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (error) {
         console.error('❌ Error handling public account blocking:', error);
+        updateStatus(`Error blocking ${task.username}: ${error.message}`, 'error');
+        updateBlockingStats('errors');
         // Add to block list as fallback
         const username = window.location.pathname.split('/')[1];
         addUsernameToBlockList(username);
@@ -608,11 +666,12 @@ function handleNextUser() {
                     checkForPostNavigationTask();
                 }
             });
-        } else {
-            console.log('✅ No more users in the queue.');
-            updateStatus('Process complete!', 'success');
-            chrome.storage.local.remove(['autoBlockQueue', 'autoBlock']);
-        }
+                        } else {
+                    console.log('✅ No more users in the queue.');
+                    displayBlockingStats();
+                    updateStatus('Blocking process complete! All users processed.', 'success');
+                    chrome.storage.local.remove(['autoBlockQueue', 'autoBlock', 'blockingStats']);
+                }
     });
 }
 
@@ -671,6 +730,135 @@ function addUserToBlockList() {
     });
 }
 
+/**
+ * Update blocking statistics
+ */
+function updateBlockingStats(type) {
+    const oldValue = blockingStats[type];
+    blockingStats[type]++;
+    console.log(`📊 Updated stats - ${type}: ${oldValue} -> ${blockingStats[type]}`);
+    
+    // Save to storage to persist across page reloads
+    chrome.storage.local.set({ blockingStats: blockingStats }, function() {
+        console.log('💾 Saved blocking stats to storage');
+    });
+}
+
+/**
+ * Display blocking statistics summary
+ */
+function displayBlockingStats() {
+    console.log('📊 Displaying final blocking statistics:', blockingStats);
+    const summary = `Processed: ${blockingStats.total} | Blocked: ${blockingStats.blocked} | Already Blocked: ${blockingStats.alreadyBlocked} | Errors: ${blockingStats.errors} | Skipped: ${blockingStats.skipped}`;
+    updateStatus(summary, 'info');
+    
+    // Show a more detailed toast notification
+    const detailMessage = `✅ Process Complete!\n\n📊 Summary:\n• Total: ${blockingStats.total}\n• Successfully Blocked: ${blockingStats.blocked}\n• Already Blocked: ${blockingStats.alreadyBlocked}\n• Errors: ${blockingStats.errors}\n• Skipped: ${blockingStats.skipped}`;
+    
+    // Send detailed message to popup for toast
+    chrome.runtime.sendMessage({
+        action: 'showDetailedToast',
+        message: detailMessage,
+        type: 'success'
+    });
+    
+    console.log('📊 Final blocking statistics:', blockingStats);
+}
+
+/**
+ * Reset blocking statistics
+ */
+function resetBlockingStats() {
+    blockingStats = {
+        total: 0,
+        blocked: 0,
+        alreadyBlocked: 0,
+        errors: 0,
+        skipped: 0
+    };
+    
+    // Clear from storage as well
+    chrome.storage.local.remove(['blockingStats'], function() {
+        console.log('🗑️ Cleared blocking stats from storage');
+    });
+    
+    console.log('🔄 Reset blocking statistics');
+}
+
+/**
+ * Check if the current user is already blocked
+ * @returns {Promise<boolean>} True if the user is already blocked
+ */
+async function checkIfAlreadyBlocked() {
+    try {
+        console.log('🔍 Checking if user is already blocked...');
+        
+        // Look for indicators that the user is already blocked
+        const blockedIndicators = [
+            '[data-e2e="user-more"]', // More button should exist
+            'div[role="button"][aria-label="Unblock"]', // Unblock option in menu
+            'div[role="button"][aria-label="Unblock user"]', // Alternative unblock text
+            '.unblock-button', // CSS class for unblock
+            '[data-e2e="unblock"]' // Data attribute for unblock
+        ];
+
+        // First, try to find the "More" button
+        const moreButton = document.querySelector('[data-e2e="user-more"]');
+        if (!moreButton) {
+            console.log('❌ Could not find more button - user might not be accessible');
+            console.log('🔍 Available buttons with data-e2e:');
+            const e2eButtons = document.querySelectorAll('[data-e2e]');
+            e2eButtons.forEach((btn, index) => {
+                console.log(`  ${index}: ${btn.getAttribute('data-e2e')} - ${btn.textContent?.trim()}`);
+            });
+            return false;
+        }
+
+        // Click the more button to open the menu
+        console.log('🖱️ Clicking more button to check blocking status...');
+        simulateMouseEvent(moreButton, 'click');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Look for unblock option in the menu
+        for (const selector of blockedIndicators) {
+            const element = document.querySelector(selector);
+            if (element) {
+                console.log(`✅ Found unblock option with selector: ${selector}`);
+                console.log('✅ User is already blocked');
+                // Close the menu by clicking outside or pressing escape
+                document.body.click();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return true;
+            }
+        }
+
+        // If we don't find unblock option, check for block option
+        const blockOption = document.querySelector('div[role="button"][aria-label="Block"]');
+        if (blockOption) {
+            console.log('✅ Found block option, user is not blocked');
+            // Close the menu
+            document.body.click();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return false;
+        }
+
+        console.log('❓ Could not determine blocking status - no unblock or block option found');
+        console.log('🔍 Available menu options:');
+        const menuOptions = document.querySelectorAll('div[role="button"]');
+        menuOptions.forEach((option, index) => {
+            console.log(`  ${index}: ${option.getAttribute('aria-label')} - ${option.textContent?.trim()}`);
+        });
+        // Close the menu
+        document.body.click();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return false;
+
+    } catch (error) {
+        console.error('❌ Error checking if user is already blocked:', error);
+        return false;
+    }
+}
+
 // Add a specific username to blocklist (for use in automation)
 function addUsernameToBlockList(username) {
     chrome.storage.local.get([blockListKey], function(result) {
@@ -679,9 +867,11 @@ function addUsernameToBlockList(username) {
             blockList.push(username);
             chrome.storage.local.set({ [blockListKey]: blockList });
             console.info(`Added ${username} to block list.`);
+            updateStatus(`Added ${username} to block list`, 'success');
             return true;
         } else {
             console.info(`${username} is already in the block list.`);
+            updateStatus(`${username} is already in block list`, 'info');
             return false;
         }
     });
@@ -717,12 +907,18 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         chrome.storage.local.remove(['autoBlock'], function() {
             console.log('🗑️ Cleared any existing auto block task');
             
+            // Reset blocking statistics for new session
+            resetBlockingStats();
+            
             const usernames = request.usernames.map(username => ({
                 username: username.trim(), 
                 action: 'block' // Always use block mode for now
                 // action: request.mode === 'unblock' ? 'unblock' : 'block'
             }));
             console.log('🔄 Processed usernames:', usernames);
+            
+            // Set total count for statistics
+            blockingStats.total = usernames.length;
             
             chrome.storage.local.set({autoBlockQueue: usernames}, function() {
                 console.log('💾 Block queue saved to storage');

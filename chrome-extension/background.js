@@ -36,11 +36,7 @@ chrome.runtime.onInstalled.addListener(function(details) {
 
 // Handle messages from content script and popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    if (request.action === 'updateStatus') {
-        // Forward status updates to popup if it's open
-        chrome.runtime.sendMessage(request);
-    }
-    
+    // No message forwarding needed - content script can communicate directly with popup
     // Always return true for async responses
     return true;
 });

@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.action === 'updateStatus') {
             updateStatus(request.message, request.type);
+        } else if (request.action === 'showDetailedToast') {
+            showToast(request.message, request.type, 8000); // Show for 8 seconds
         }
     });
     
@@ -268,6 +270,39 @@ function clearStuckTasks() {
 }
 
 /**
+ * Show a toast notification
+ */
+function showToast(message, type = 'info', duration = 4000) {
+    const toastContainer = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // Handle multi-line messages
+    if (message.includes('\n')) {
+        toast.innerHTML = message.replace(/\n/g, '<br>');
+    } else {
+        toast.textContent = message;
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, duration);
+}
+
+/**
  * Update the status display
  */
 function updateStatus(message, type = 'info') {
@@ -275,6 +310,11 @@ function updateStatus(message, type = 'info') {
     statusElement.textContent = message;
     statusElement.className = `status ${type}`;
     statusElement.style.display = 'block';
+    
+    // Also show a toast for important messages
+    if (type === 'success' || type === 'warning' || type === 'error' || type === 'info') {
+        showToast(message, type);
+    }
     
     // Auto-hide success messages after 3 seconds
     if (type === 'success') {
