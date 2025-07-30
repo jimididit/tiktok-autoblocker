@@ -5,8 +5,7 @@
   "description": "Mass block TikTok users. Join the block party with custom, shareable blocklists. Stay focused, safe, and in control.",
   "permissions": [
     "activeTab",
-    "storage",
-    "scripting"
+    "storage"
   ],
   "host_permissions": [
     "*://*.tiktok.com/*"
