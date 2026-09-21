@@ -1,5 +1,6 @@
 // TikTok AutoBlocker Popup Script
 // Handles user interactions and communicates with content script
+'use strict';
 
 // ===== DEVELOPER SETTINGS =====
 // Set this to true to enable debug features (only for developers with source code)
@@ -15,6 +16,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('addCurrentUser').addEventListener('click', addCurrentUser);
     document.getElementById('downloadBlockList').addEventListener('click', downloadBlockList);
     document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+    document.getElementById('helpBlockList').addEventListener('click', showBlockListHelp);
+    document.getElementById('saveSelectors').addEventListener('click', saveSelectors);
+    document.getElementById('testSelectors').addEventListener('click', testSelectors);
+    document.getElementById('resetSelectors').addEventListener('click', resetSelectors);
+    document.getElementById('pickMore').addEventListener('click', function() { pickSelector('more'); });
+    document.getElementById('pickBlock').addEventListener('click', function() { pickSelector('block'); });
+    document.getElementById('pickConfirm').addEventListener('click', function() { pickSelector('confirm'); });
+    loadSelectors();
     
     // Add debug event listeners only if debug mode is enabled
     if (DEBUG_MODE_ENABLED) {
@@ -45,26 +54,147 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+/** Message shown when content script isn't loaded (e.g. tab opened before extension) */
+var CONTENT_SCRIPT_MISSING_MSG = 'Extension couldn\'t connect to the TikTok tab. Refresh the TikTok page (F5), then try again.';
+
 /**
- * Add the current user to the block list
+ * Ensure content script is running in the tab (inject if needed), then run callback.
+ * Fixes "Receiving end does not exist" when the tab was opened before the extension was enabled.
+ * We always run callback even if injection reports an error (e.g. script already loaded and threw).
+ */
+function withContentScript(tabId, callback) {
+    chrome.tabs.sendMessage(tabId, { action: 'ping' }, function(response) {
+        if (!chrome.runtime.lastError && response && response.ok) {
+            callback();
+            return;
+        }
+        chrome.scripting.executeScript(
+            { target: { tabId: tabId }, files: ['page-world.js'], world: 'MAIN' },
+            function () {
+                chrome.scripting.executeScript(
+                    { target: { tabId: tabId }, files: ['content.js'] },
+                    function () {
+                        setTimeout(callback, 80);
+                    }
+                );
+            }
+        );
+    });
+}
+
+function selectorFields() {
+    return {
+        more: document.getElementById('selectorMore').value.trim(),
+        block: document.getElementById('selectorBlock').value.trim(),
+        confirm: document.getElementById('selectorConfirm').value.trim()
+    };
+}
+
+function fillSelectorFields(selectors) {
+    document.getElementById('selectorMore').value = (selectors && selectors.more) || '';
+    document.getElementById('selectorBlock').value = (selectors && selectors.block) || '';
+    document.getElementById('selectorConfirm').value = (selectors && selectors.confirm) || '';
+}
+
+function loadSelectors() {
+    chrome.storage.local.get(['tiktokBlockSelectors'], function(result) {
+        fillSelectorFields(result.tiktokBlockSelectors || {});
+    });
+}
+
+function saveSelectors() {
+    const selectors = selectorFields();
+    chrome.storage.local.set({ tiktokBlockSelectors: selectors }, function() {
+        if (chrome.runtime.lastError) {
+            updateStatus('Could not save selectors.', 'error');
+            return;
+        }
+        updateStatus('Selectors saved.', 'success');
+    });
+}
+
+function resetSelectors() {
+    fillSelectorFields({});
+    chrome.storage.local.remove(['tiktokBlockSelectors'], function() {
+        updateStatus('Using built-in selectors.', 'success');
+    });
+}
+
+function activeTikTokTab(callback) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const currentTab = tabs[0];
+        if (!currentTab || !currentTab.url || currentTab.url.indexOf('tiktok.com') === -1) {
+            updateStatus('Open a TikTok profile page first.', 'warning');
+            return;
+        }
+        callback(currentTab);
+    });
+}
+
+function testSelectors() {
+    activeTikTokTab(function(currentTab) {
+        withContentScript(currentTab.id, function() {
+            chrome.tabs.sendMessage(currentTab.id, { action: 'testSelectors' }, function(response) {
+                if (chrome.runtime.lastError || !response || !response.success) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
+                function firstHit(list) {
+                    for (let i = 0; i < list.length; i++) {
+                        if (list[i].count > 0) return list[i].selector + ' (' + list[i].count + ')';
+                    }
+                    return 'not visible';
+                }
+                updateStatus('Actions: ' + firstHit(response.more) + '\nBlock item: ' + firstHit(response.block) + '\nConfirm: ' + firstHit(response.confirm), 'info');
+            });
+        });
+    });
+}
+
+function pickSelector(slot) {
+    activeTikTokTab(function(currentTab) {
+        withContentScript(currentTab.id, function() {
+            chrome.tabs.sendMessage(currentTab.id, { action: 'pickElement', slot: slot }, function(response) {
+                if (chrome.runtime.lastError || !response || !response.success) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
+                updateStatus('Click that control on the TikTok page. Reopen the popup to see the saved selector.', 'info');
+            });
+        });
+    });
+}
+
+/**
+ * Add the current user to the block list (button is disabled while request is in flight to prevent spam)
  */
 function addCurrentUser() {
-    // Check if we're on a TikTok page
+    var btn = document.getElementById('addCurrentUser');
+    if (btn) btn.disabled = true;
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const currentTab = tabs[0];
-        if (currentTab.url && currentTab.url.includes('tiktok.com')) {
-            // Send message to content script
+        if (!currentTab || !currentTab.url || !currentTab.url.includes('tiktok.com')) {
+            updateStatus('Please navigate to a TikTok profile page first.', 'warning');
+            if (btn) btn.disabled = false;
+            return;
+        }
+        withContentScript(currentTab.id, function() {
             chrome.tabs.sendMessage(currentTab.id, {action: 'addCurrentUser'}, function(response) {
+                if (btn) btn.disabled = false;
+                if (chrome.runtime.lastError) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
                 if (response && response.success) {
-                    updateStatus('User added to block list!', 'success');
+                    updateStatus(response.alreadyInList ? 'User already in block list.' : 'User added to block list!', 'success');
                     loadBlockListStats();
                 } else {
                     updateStatus('Failed to add user. Make sure you\'re on a TikTok profile page.', 'error');
                 }
             });
-        } else {
-            updateStatus('Please navigate to a TikTok profile page first.', 'warning');
-        }
+        });
+        // Re-enable button if no response within 3s (e.g. tab closed)
+        setTimeout(function() { if (btn) btn.disabled = false; }, 3000);
     });
 }
 
@@ -74,8 +204,16 @@ function addCurrentUser() {
 function downloadBlockList() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const currentTab = tabs[0];
-        if (currentTab.url && currentTab.url.includes('tiktok.com')) {
+        if (!currentTab || !currentTab.url || !currentTab.url.includes('tiktok.com')) {
+            updateStatus('Please navigate to a TikTok page first.', 'warning');
+            return;
+        }
+        withContentScript(currentTab.id, function() {
             chrome.tabs.sendMessage(currentTab.id, {action: 'downloadBlockList'}, function(response) {
+                if (chrome.runtime.lastError) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
                 if (response && response.blockList) {
                     const blockList = response.blockList;
                     if (blockList.length > 0) {
@@ -96,10 +234,31 @@ function downloadBlockList() {
                     updateStatus('Failed to download block list.', 'error');
                 }
             });
-        } else {
-            updateStatus('Please navigate to a TikTok page first.', 'warning');
-        }
+        });
     });
+}
+
+/**
+ * Parse uploaded file: .txt (one username per line) or .json (TikTok-style block list)
+ * @param {string} text - File content
+ * @param {string} fileName - File name (for format detection)
+ * @returns {string[]} Array of usernames (without @)
+ */
+function parseBlockListFile(text, fileName) {
+    const ext = (fileName || '').toLowerCase().split('.').pop();
+    if (ext === 'json') {
+        try {
+            const data = JSON.parse(text);
+            const list = Array.isArray(data) ? data : (data['Block list'] || data['BlockList'] || data.block_list || data.blockList || []);
+            return list
+                .map(item => (item && (item.username || item.Username || item.user_name))) 
+                .filter(Boolean)
+                .map(u => String(u).trim().replace(/^@/, ''));
+        } catch (err) {
+            return null; // fallback to plain text
+        }
+    }
+    return text.split(/\r?\n/).map(u => u.trim().replace(/^@/, '')).filter(u => u !== '');
 }
 
 /**
@@ -111,35 +270,49 @@ function handleFileUpload(event) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const text = e.target.result;
-            const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '');
+            const usernames = parseBlockListFile(text, file.name);
             
-            if (usernames.length > 0) {
+            if (usernames && usernames.length > 0) {
                 chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
                     const currentTab = tabs[0];
-                    if (currentTab.url && currentTab.url.includes('tiktok.com')) {
+                    if (!currentTab || !currentTab.url || !currentTab.url.includes('tiktok.com')) {
+                        updateStatus('Please navigate to a TikTok page first.', 'warning');
+                        return;
+                    }
+                    withContentScript(currentTab.id, function() {
                         chrome.tabs.sendMessage(currentTab.id, {
                             action: 'uploadBlockList',
                             usernames: usernames,
                             mode: 'block'
                         }, function(response) {
+                            if (chrome.runtime.lastError) {
+                                updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                                return;
+                            }
                             if (response && response.success) {
                                 updateStatus(`Uploaded ${usernames.length} usernames for blocking!`, 'success');
-                                // Clear the file input
                                 event.target.value = '';
                             } else {
                                 updateStatus('Failed to upload block list.', 'error');
                             }
                         });
-                    } else {
-                        updateStatus('Please navigate to a TikTok page first.', 'warning');
-                    }
+                    });
                 });
             } else {
-                updateStatus('No valid usernames found in file.', 'warning');
+                updateStatus('No valid usernames found in file. Use .txt (one per line) or TikTok export .json.', 'warning');
             }
         };
         reader.readAsText(file);
     }
+}
+
+/**
+ * Open help for getting existing blocked list from TikTok (README section)
+ */
+function showBlockListHelp() {
+    const url = 'https://github.com/jimididit/tiktok-autoblocker#-getting-your-existing-blocked-list-from-tiktok';
+    chrome.tabs.create({ url: url });
+    updateStatus('Opened guide in new tab.', 'info');
 }
 
 

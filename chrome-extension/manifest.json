@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
   "name": "TikTok AutoBlocker - Mass Block & Share Blocklists",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "description": "Mass block TikTok users. Join the block party with custom, shareable blocklists. Stay focused, safe, and in control.",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting"
   ],
   "host_permissions": [
     "*://*.tiktok.com/*"
   ],
   "content_scripts": [
+    {
+      "matches": ["*://*.tiktok.com/*"],
+      "js": ["page-world.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
     {
       "matches": ["*://*.tiktok.com/*"],
       "js": ["content.js"],

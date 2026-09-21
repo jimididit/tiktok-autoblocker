@@ -1,12 +1,15 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.5.0
+// @version      0.6.1
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
-// @match        *://*.tiktok.com/*
-// @grant        none
-// @run-at       document-start
+// @match        https://www.tiktok.com/*
+// @match        https://tiktok.com/*
+// @inject-into  content
+// @grant        unsafeWindow
+// @grant        GM_addStyle
+// @run-at       document-idle
 // ==/UserScript==
 
 // Use of an Immediately Invoked Function Expression (IIFE) to avoid polluting the global scope.
@@ -20,25 +23,58 @@
     }
     window.tiktokAutoBlockerLoaded = true;
 
-    // Key to access TikTok block list in localStorage.
+    // Page storage. Sandbox mode does not share the page's localStorage unless we use unsafeWindow.
+    const pageStorage = (typeof unsafeWindow !== 'undefined' && unsafeWindow.localStorage) ? unsafeWindow.localStorage : localStorage;
     const blockListKey = 'tiktokBlockList';
+    const selectorStorageKey = 'tiktokBlockSelectors';
     console.log('Running Enhanced TikTok AutoBlocker Script v0.3');
     console.log('📍 Current URL:', window.location.href);
     console.log('📍 Page title:', document.title);
     console.log('📍 Script loaded at:', new Date().toISOString());
 
-    // Initialize the script by checking if there's a post-navigation task to be performed.
-    checkForPostNavigationTask();
+    try {
+        checkForPostNavigationTask();
+    } catch (error) {
+        console.error('Failed to resume a block task:', error);
+        try { pageStorage.removeItem('autoBlock'); } catch (cleanupError) {}
+    }
 
     /**
      * Checks for tasks that should continue after page navigation.
      * This typically involves continuing a blocking process that was interrupted by a page load.
      */
     function checkForPostNavigationTask() {
-        const task = JSON.parse(localStorage.getItem('autoBlock'));
-        if (task) {
+        let task = null;
+        try {
+            const raw = pageStorage.getItem('autoBlock');
+            task = raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            console.error('Cleared unreadable block task:', error);
+            pageStorage.removeItem('autoBlock');
+            return;
+        }
+        if (task && task.username) {
             performBlockOperation(task);
         }
+    }
+
+    function profileHandle(username) {
+        return String(username || '').trim().replace(/^@/, '');
+    }
+
+    function profileUrl(username) {
+        return 'https://www.tiktok.com/@' + profileHandle(username);
+    }
+
+    function isOnProfile(username) {
+        const handle = profileHandle(username).toLowerCase();
+        let segment = '';
+        try {
+            segment = decodeURIComponent(window.location.pathname.split('/')[1] || '');
+        } catch (error) {
+            segment = window.location.pathname.split('/')[1] || '';
+        }
+        return handle.length > 0 && segment.replace(/^@/, '').toLowerCase() === handle;
     }
 
     /**
@@ -47,15 +83,14 @@
      */
     async function performBlockOperation(task) {
         // Task name check to protect against a recursive block check/refresh loop
-        if(task.username == "@N/A"){
-            localStorage.removeItem('autoBlock'); // Remove the stored Task since it's a broken user
-            handleNextUser(); // Force another check to ensure the queue continues if @N/A is found part way through
+        if (!profileHandle(task.username) || profileHandle(task.username).toLowerCase() === 'n/a') {
+            pageStorage.removeItem('autoBlock');
+            handleNextUser();
             return;
         }
 
-        // Check if the current location is the correct user page, if not redirect.
-        if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
-            window.location.href = `https://www.tiktok.com/${task.username}`;
+        if (!isOnProfile(task.username)) {
+            window.location.href = profileUrl(task.username);
             return;
         }
 
@@ -119,10 +154,9 @@
 
             // Check for "This account is private" text
             const pageText = document.body.textContent.toLowerCase();
-            if (pageText.includes('this account is private') || 
+            if (pageText.includes('this account is private') ||
                 pageText.includes('private account') ||
-                pageText.includes('account is private') ||
-                pageText.includes('private')) {
+                pageText.includes('account is private')) {
                 console.info('Private account text found in page content');
                 return true;
             }
@@ -280,7 +314,8 @@
         try {
             // Step 1: Find and click the "More" button (3 dots)
             console.log('🔍 Step 1: Looking for more options button...');
-            const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
+            const selectorLists = readSelectorLists();
+            const moreButton = await waitForAnyElement(selectorLists.more, 5000);
             if (!moreButton) {
                 console.warn('❌ Could not find more options button');
                 const username = window.location.pathname.split('/')[1];
@@ -297,7 +332,7 @@
 
             // Step 2: Find and click the "Block" option in the popover
             console.log('🔍 Step 2: Looking for block option in popover...');
-            const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
+            const blockOption = await waitForAnyElement(selectorLists.block, 3000);
             if (!blockOption) {
                 console.warn('❌ Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
@@ -314,7 +349,7 @@
 
             // Step 3: Find and click the "Block" button in the confirmation modal
             console.log('🔍 Step 3: Looking for confirm button in modal...');
-            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
+            const confirmButton = await waitForAnyElement(selectorLists.confirm, 3000);
             if (!confirmButton) {
                 console.warn('❌ Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];
@@ -344,7 +379,8 @@
         try {
             // Step 1: Find and click the "More" button (3 dots)
             console.log('🔍 Step 1: Looking for more options button...');
-            const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
+            const selectorLists = readSelectorLists();
+            const moreButton = await waitForAnyElement(selectorLists.more, 5000);
             if (!moreButton) {
                 console.warn('❌ Could not find more options button');
                 const username = window.location.pathname.split('/')[1];
@@ -361,7 +397,7 @@
 
             // Step 2: Find and click the "Block" option in the popover
             console.log('🔍 Step 2: Looking for block option in popover...');
-            const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
+            const blockOption = await waitForAnyElement(selectorLists.block, 3000);
             if (!blockOption) {
                 console.warn('❌ Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
@@ -378,7 +414,7 @@
 
             // Step 3: Find and click the "Block" button in the confirmation modal
             console.log('🔍 Step 3: Looking for confirm button in modal...');
-            const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
+            const confirmButton = await waitForAnyElement(selectorLists.confirm, 3000);
             if (!confirmButton) {
                 console.warn('❌ Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];
@@ -404,18 +440,18 @@
      * Processes the next user in the queue.
      */
     function handleNextUser() {
-        const users = JSON.parse(localStorage.getItem('autoBlockQueue') || '[]');
+        const users = JSON.parse(pageStorage.getItem('autoBlockQueue') || '[]');
         if (users.length > 0) {
             const nextUser = users.shift();
-            localStorage.setItem('autoBlockQueue', JSON.stringify(users));
-            localStorage.setItem('autoBlock', JSON.stringify(nextUser));
+            pageStorage.setItem('autoBlockQueue', JSON.stringify(users));
+            pageStorage.setItem('autoBlock', JSON.stringify(nextUser));
             updateStatus(`Queue: ${users.length} users remaining`, 'info');
             checkForPostNavigationTask();
         } else {
             console.log('✅ No more users in the queue.');
             updateStatus('Process complete!', 'success');
-            localStorage.removeItem('autoBlockQueue');
-            localStorage.removeItem('autoBlock');
+            pageStorage.removeItem('autoBlockQueue');
+            pageStorage.removeItem('autoBlock');
         }
     }
 
@@ -425,6 +461,93 @@
      * @param {Number} timeout - The timeout in milliseconds.
      * @returns {Promise<Element>} A promise that resolves with the element.
      */
+    const DEFAULT_MORE_SELECTORS = [
+        'button[data-e2e="user-more"]',
+        '[data-e2e="user-more"]',
+        'button[aria-label="Actions"]',
+        'button[aria-label="More options"]'
+    ];
+    const DEFAULT_BLOCK_SELECTORS = [
+        'div[role="button"][aria-label="Block"]',
+        '[role="button"][aria-label="Block"]',
+        '[aria-label="Block"]'
+    ];
+    const DEFAULT_CONFIRM_SELECTORS = [
+        'button[data-e2e="block-popup-block-btn"]',
+        'button[class*="StyledButtonBlock"]',
+        'button[class*="Button-StyledButtonBlock"]'
+    ];
+
+    function readCustomSelectors() {
+        try {
+            return JSON.parse(pageStorage.getItem(selectorStorageKey) || '{}') || {};
+        } catch (error) {
+            return {};
+        }
+    }
+
+    function withCustomSelector(customValue, defaults) {
+        const value = String(customValue || '').trim();
+        if (!value) return defaults.slice();
+        return [value].concat(defaults.filter(function(selector) { return selector !== value; }));
+    }
+
+    function readSelectorLists() {
+        const custom = readCustomSelectors();
+        return {
+            more: withCustomSelector(custom.more, DEFAULT_MORE_SELECTORS),
+            block: withCustomSelector(custom.block, DEFAULT_BLOCK_SELECTORS),
+            confirm: withCustomSelector(custom.confirm, DEFAULT_CONFIRM_SELECTORS)
+        };
+    }
+
+    function saveCustomSelectors(selectors) {
+        pageStorage.setItem(selectorStorageKey, JSON.stringify(selectors));
+    }
+
+    function selectorForElement(start) {
+        let el = start;
+        for (let i = 0; i < 6 && el && el !== document.body; i++) {
+            const e2e = el.getAttribute && el.getAttribute('data-e2e');
+            if (e2e) {
+                return el.tagName.toLowerCase() + '[data-e2e="' + e2e.replace(/"/g, '\\"') + '"]';
+            }
+            const aria = el.getAttribute && el.getAttribute('aria-label');
+            const role = el.getAttribute && el.getAttribute('role');
+            if (aria && (role === 'button' || el.tagName === 'BUTTON')) {
+                const rolePart = role ? '[role="' + role + '"]' : '';
+                return el.tagName.toLowerCase() + rolePart + '[aria-label="' + aria.replace(/"/g, '\\"') + '"]';
+            }
+            el = el.parentElement;
+        }
+        return '';
+    }
+
+    function waitForAnyElement(selectors, timeout) {
+        return new Promise((resolve) => {
+            const endTime = Date.now() + timeout;
+            const timer = setInterval(() => {
+                if (Date.now() > endTime) {
+                    clearInterval(timer);
+                    resolve(null);
+                    return;
+                }
+                for (let i = 0; i < selectors.length; i++) {
+                    try {
+                        const el = document.querySelector(selectors[i]);
+                        if (el) {
+                            clearInterval(timer);
+                            resolve(el);
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn('Invalid selector:', selectors[i], error);
+                    }
+                }
+            }, 150);
+        });
+    }
+
     function waitForElement(selector, timeout) {
         return new Promise((resolve, reject) => {
             const intervalTime = 100;
@@ -448,15 +571,44 @@
      * @param {Element} element - The DOM element to target.
      * @param {String} eventType - The type of event ('click', 'mouseover', etc.).
      */
+    function reactProps(element) {
+        let node = element;
+        for (let guard = 0; node && guard < 6; guard += 1) {
+            const key = Object.keys(node).find(function (name) { return name.indexOf('__reactProps') === 0; });
+            const props = key ? node[key] : null;
+            if (props && (props.onClick || props.onPointerDown || props.onMouseDown)) return props;
+            node = node.parentElement;
+        }
+        return null;
+    }
+
     function simulateMouseEvent(element, eventType) {
-        console.log(`Simulating ${eventType} event`);
-        const event = new MouseEvent(eventType, {
-            view: window,
-            bubbles: true,
-            cancelable: true
-        });
-        element.dispatchEvent(event);
-        console.log(`${eventType} event triggered`);
+        if (!element) return;
+        console.log('Simulating ' + eventType + ' event');
+        element.setAttribute('data-tiktok-autoblocker-target', '1');
+        const pageDoc = (typeof unsafeWindow !== 'undefined' && unsafeWindow.document) ? unsafeWindow.document : document;
+        const pageEl = pageDoc.querySelector('[data-tiktok-autoblocker-target]') || element;
+        element.removeAttribute('data-tiktok-autoblocker-target');
+        const props = reactProps(pageEl);
+        const rect = pageEl.getBoundingClientRect();
+        const fake = {
+            currentTarget: pageEl,
+            target: pageEl,
+            button: 0,
+            buttons: 1,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2,
+            pointerId: 1,
+            pointerType: 'mouse',
+            isPrimary: true,
+            preventDefault: function () {},
+            stopPropagation: function () {},
+            persist: function () {},
+            nativeEvent: { isTrusted: true, button: 0 }
+        };
+        if (props && props.onPointerDown) props.onPointerDown(Object.assign({ type: 'pointerdown' }, fake));
+        if (props && props.onMouseDown) props.onMouseDown(Object.assign({ type: 'mousedown' }, fake));
+        if (props && props.onClick) props.onClick(Object.assign({ type: 'click', buttons: 0 }, fake));
     }
 
     // Initialize the user interface.
@@ -491,6 +643,9 @@
             
             createStatusIndicator(card);
             console.log('✅ Status indicator created');
+
+            addSelectorSettings(card);
+            console.log('✅ Selector settings created');
             
             console.log('✅ TikTok AutoBlocker UI created successfully!');
             console.log('✅ Card element in DOM:', document.getElementById('tiktok-autoblocker-card'));
@@ -574,7 +729,7 @@
         const file = event.target.files[0];
         const text = await file.text();
         const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(username => ({username: username.trim(), action: 'block'}));
-        localStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
+        pageStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
         updateStatus(`Loaded ${usernames.length} usernames for blocking`, 'info');
         console.log('🚀 Starting blocking process...');
         handleNextUser();
@@ -647,13 +802,124 @@
         card.appendChild(filenameLabel);
     }
 
+    function addSelectorSettings(card) {
+        const saved = readCustomSelectors();
+        const details = document.createElement('details');
+        details.style.marginTop = '10px';
+        details.style.color = '#333';
+
+        const summary = document.createElement('summary');
+        summary.textContent = 'Page selectors';
+        summary.style.cursor = 'pointer';
+        details.appendChild(summary);
+
+        const hint = document.createElement('p');
+        hint.textContent = 'Leave a field empty to use the built-in selector. Pick, then click the control on the page.';
+        hint.style.fontSize = '12px';
+        hint.style.margin = '8px 0';
+        details.appendChild(hint);
+
+        function field(labelText, key, placeholder) {
+            const label = document.createElement('label');
+            label.textContent = labelText;
+            label.style.display = 'block';
+            label.style.fontSize = '12px';
+            label.style.marginTop = '6px';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = saved[key] || '';
+            input.placeholder = placeholder;
+            input.style.width = '100%';
+            input.style.boxSizing = 'border-box';
+            input.style.marginTop = '3px';
+            input.dataset.selectorKey = key;
+            label.appendChild(input);
+            details.appendChild(label);
+            return input;
+        }
+
+        const moreInput = field('Actions button', 'more', 'button[data-e2e="user-more"]');
+        const blockInput = field('Block menu item', 'block', 'div[role="button"][aria-label="Block"]');
+        const confirmInput = field('Confirm button', 'confirm', 'button[data-e2e="block-popup-block-btn"]');
+        const inputs = { more: moreInput, block: blockInput, confirm: confirmInput };
+
+        function currentValues() {
+            return {
+                more: moreInput.value.trim(),
+                block: blockInput.value.trim(),
+                confirm: confirmInput.value.trim()
+            };
+        }
+
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Save selectors';
+        saveButton.style.marginTop = '8px';
+        saveButton.style.width = '100%';
+        saveButton.onclick = function() {
+            saveCustomSelectors(currentValues());
+            updateStatus('Selectors saved', 'success');
+        };
+        details.appendChild(saveButton);
+
+        let picker = null;
+        function stopPicker() {
+            if (!picker) return;
+            document.removeEventListener('click', picker, true);
+            picker = null;
+        }
+
+        function pick(key, labelText) {
+            stopPicker();
+            updateStatus('Click the ' + labelText + ' on the page', 'info');
+            picker = function(event) {
+                if (card.contains(event.target)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const selector = selectorForElement(event.target);
+                stopPicker();
+                if (!selector) {
+                    updateStatus('Could not read a selector from that click', 'warning');
+                    return;
+                }
+                inputs[key].value = selector;
+                const next = currentValues();
+                saveCustomSelectors(next);
+                updateStatus('Saved ' + labelText + ' selector', 'success');
+            };
+            document.addEventListener('click', picker, true);
+        }
+
+        const pickMore = document.createElement('button');
+        pickMore.textContent = 'Pick Actions button';
+        pickMore.style.marginTop = '5px';
+        pickMore.style.width = '100%';
+        pickMore.onclick = function() { pick('more', 'Actions button'); };
+        details.appendChild(pickMore);
+
+        const pickBlock = document.createElement('button');
+        pickBlock.textContent = 'Pick Block item';
+        pickBlock.style.marginTop = '5px';
+        pickBlock.style.width = '100%';
+        pickBlock.onclick = function() { pick('block', 'Block item'); };
+        details.appendChild(pickBlock);
+
+        const pickConfirm = document.createElement('button');
+        pickConfirm.textContent = 'Pick confirm button';
+        pickConfirm.style.marginTop = '5px';
+        pickConfirm.style.width = '100%';
+        pickConfirm.onclick = function() { pick('confirm', 'confirm button'); };
+        details.appendChild(pickConfirm);
+
+        card.appendChild(details);
+    }
+
     // Add current profile username to blocklist
     function addUserToBlockList() {
         const username = window.location.pathname.split('/')[1];
-        const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
+        const blockList = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
         if (!blockList.includes(username)) {
             blockList.push(username);
-            localStorage.setItem(blockListKey, JSON.stringify(blockList));
+            pageStorage.setItem(blockListKey, JSON.stringify(blockList));
             console.info(`Added ${username} to block list.`);
         } else {
             console.info(`${username} is already in the block list.`);
@@ -662,10 +928,10 @@
 
     // Add a specific username to blocklist (for use in automation)
     function addUsernameToBlockList(username) {
-        const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
+        const blockList = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
         if (!blockList.includes(username)) {
             blockList.push(username);
-            localStorage.setItem(blockListKey, JSON.stringify(blockList));
+            pageStorage.setItem(blockListKey, JSON.stringify(blockList));
             console.info(`Added ${username} to block list.`);
             return true;
         } else {
@@ -676,7 +942,7 @@
 
     // Download blocklist as TXT file
     function downloadBlockList() {
-        const blockList = JSON.parse(localStorage.getItem(blockListKey) || '[]');
+        const blockList = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
         //const filename = filenameInput.value.trim();
         const blob = new Blob([blockList.join('\n')], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);

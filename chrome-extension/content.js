@@ -1,14 +1,12 @@
 // TikTok AutoBlocker Content Script
 // This script runs on TikTok pages and handles the blocking functionality
-
-// Prevent multiple executions of this script
+// Wrapped in IIFE so re-injection (e.g. from popup) does not redeclare const/let → "Identifier has already been declared"
+(function() {
+'use strict';
 if (window.tiktokAutoBlockerLoaded) {
     console.log('TikTok AutoBlocker already loaded, skipping...');
-    // Exit early to prevent re-execution
-    throw new Error('TikTok AutoBlocker already loaded');
+    return;
 }
-
-// Mark as loaded to prevent re-execution
 window.tiktokAutoBlockerLoaded = true;
 
 // ===== DEVELOPER SETTINGS =====
@@ -141,37 +139,96 @@ function logDebug(message, type = 'log') {
 // Initialize the script by checking if there's a post-navigation task to be performed.
 checkForPostNavigationTask();
 
+/** Known TikTok path segments that are NOT profile pages (avoid redirect loops) */
+const TIKTOK_NON_PROFILE_PATHS = new Set([
+    '', 'explore', 'following', 'fyp', 'login', 'signup', 'settings', 'discover',
+    'search', 'live', 'music', 'notifications', 'inbox', 'upload', 'studio',
+    'trending', 'recommended', 'friend', 'rewards', 'legal', 'policy', 'about',
+    '404'  // error page – treat as non-profile so we clear session and stop refresh loop
+]);
+
+/** Max age of a blocking task in ms; older tasks are cleared to prevent reload loops (e.g. after re-enabling extension) */
+const TASK_MAX_AGE_MS = 10 * 60 * 1000;
+
+/**
+ * Returns true if the current URL looks like a TikTok user profile page (e.g. /username or /@user).
+ * Used to avoid redirecting on homepage/explore/etc. which can cause infinite reload loops.
+ */
+function isTikTokProfilePage() {
+    const path = window.location.pathname.replace(/^\/|\/$/g, '');
+    const segment = path.split('/')[0] || '';
+    const normalized = segment.replace(/^@/, '').toLowerCase();
+    if (TIKTOK_NON_PROFILE_PATHS.has(normalized) || TIKTOK_NON_PROFILE_PATHS.has(segment.toLowerCase())) {
+        return false;
+    }
+    return segment.length > 0;
+}
+
+/** Username without a leading @. */
+function profileHandle(username) {
+    return String(username || '').trim().replace(/^@/, '');
+}
+
+/** Canonical profile URL. TikTok profiles live at /@handle. */
+function profileUrl(username) {
+    return 'https://www.tiktok.com/@' + profileHandle(username);
+}
+
+/** True when the open page is this user's profile, with or without @ in storage. */
+function isOnProfile(username) {
+    const handle = profileHandle(username).toLowerCase();
+    let segment = '';
+    try {
+        segment = decodeURIComponent((window.location.pathname.split('/')[1] || ''));
+    } catch (e) {
+        segment = window.location.pathname.split('/')[1] || '';
+    }
+    return handle.length > 0 && segment.replace(/^@/, '').toLowerCase() === handle;
+}
+
+/**
+ * Clears blocking task and queue from storage (stops redirect/reload loops).
+ */
+function clearStuckBlockingSession(reason) {
+    console.log('🛑 Clearing blocking session:', reason);
+    chrome.storage.local.remove(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt'], function() {
+        console.log('✅ Cleared autoBlock and queue');
+    });
+}
+
 /**
  * Checks for tasks that should continue after page navigation.
  * This typically involves continuing a blocking process that was interrupted by a page load.
+ * Safeguards: do not redirect on non-profile pages (clears stuck session); expire old tasks.
  */
 function checkForPostNavigationTask() {
     console.log('🔍 Checking for post-navigation tasks...');
-    chrome.storage.local.get(['autoBlock'], function(result) {
-        console.log('📋 Auto block task found:', result.autoBlock);
-        console.log('📊 Task type:', typeof result.autoBlock);
-        console.log('📊 Task stringified:', JSON.stringify(result.autoBlock));
-        
-        if (result.autoBlock && result.autoBlock.username) {
-            console.log('🚀 Starting block operation for:', result.autoBlock);
-            performBlockOperation(result.autoBlock);
+    chrome.storage.local.get(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt'], function(result) {
+        const task = result.autoBlock;
+        const queue = (result.autoBlockQueue || []);
+        const taskSetAt = result.autoBlockTaskSetAt;
+        const onProfilePage = isTikTokProfilePage();
+
+        // If we're not on a profile page (e.g. homepage, explore), never redirect – clear stuck session to stop reload loop
+        if (!onProfilePage && (task?.username || queue.length > 0)) {
+            clearStuckBlockingSession('not on a profile page (avoid redirect loop)');
+            return;
+        }
+
+        // Expire old tasks so re-enabling the extension doesn’t resume an old run
+        if (taskSetAt && (Date.now() - taskSetAt > TASK_MAX_AGE_MS)) {
+            clearStuckBlockingSession('task older than ' + (TASK_MAX_AGE_MS / 60000) + ' minutes');
+            return;
+        }
+
+        if (task && task.username) {
+            console.log('🚀 Starting block operation for:', task);
+            performBlockOperation(task);
+        } else if (queue.length > 0) {
+            console.log('🚀 Starting new task from queue...');
+            handleNextUser();
         } else {
-            console.log('❌ No valid auto block task found');
-            console.log('🔍 Checking if we need to start a new task...');
-            
-            // Check if there are users in the queue
-            chrome.storage.local.get(['autoBlockQueue'], function(queueResult) {
-                const queue = queueResult.autoBlockQueue || [];
-                console.log('📋 Queue found:', queue);
-                console.log('📊 Queue length:', queue.length);
-                
-                if (queue.length > 0) {
-                    console.log('🚀 Starting new task from queue...');
-                    handleNextUser();
-                } else {
-                    console.log('❌ No users in queue, nothing to do');
-                }
-            });
+            console.log('❌ No valid auto block task or queue');
         }
     });
 }
@@ -186,19 +243,18 @@ async function performBlockOperation(task) {
     // Increment total count for this user
     updateBlockingStats('total');
     
-    // Task name check to protect against a recursive block check/refresh loop
-    if(task.username == "@N/A"){
+    if (!profileHandle(task.username) || profileHandle(task.username).toLowerCase() === 'n/a') {
         chrome.storage.local.remove(['autoBlock'], function() {
-            console.log('🗑️ Removed @N/A task from storage');
-            handleNextUser(); // Force another check to ensure the queue continues if @N/A is found part way through
+            console.log('🗑️ Removed N/A task from storage');
+            handleNextUser();
         });
         return;
     }
-    
-    // Check if the current location is the correct user page, if not redirect.
-    if (!window.location.href.includes(`https://www.tiktok.com/${task.username}`)) {
-        console.log('🔄 Redirecting to user page:', `https://www.tiktok.com/${task.username}`);
-        window.location.href = `https://www.tiktok.com/${task.username}`;
+
+    if (!isOnProfile(task.username)) {
+        const nextUrl = profileUrl(task.username);
+        console.log('🔄 Redirecting to user page:', nextUrl);
+        window.location.href = nextUrl;
         return;
     }
 
@@ -227,22 +283,8 @@ async function performBlockOperation(task) {
         return;
     }
 
-    // Check if the user is already blocked
-    console.log('🔍 Checking if user is already blocked...');
-    const isAlreadyBlocked = await checkIfAlreadyBlocked();
-    console.log('📊 User already blocked:', isAlreadyBlocked);
-    
-    if (isAlreadyBlocked) {
-        console.info(`User ${task.username} is already blocked`);
-        updateStatus(`User ${task.username} is already blocked - skipped`, 'info');
-        updateBlockingStats('alreadyBlocked');
-        console.log(`📊 Updated alreadyBlocked count: ${blockingStats.alreadyBlocked}`);
-        // Add to block list as fallback to ensure it's tracked
-        addUsernameToBlockList(task.username);
-        // Move to next user
-        handleNextUser();
-        return;
-    }
+    // Already-blocked is decided after the Actions menu opens, inside the block step.
+    // Checking it here clicked that menu once, and the block step clicked it again, which closed it.
 
     // Check if this is a private account
     console.log('🔍 Checking if account is private...');
@@ -299,12 +341,11 @@ async function checkIfPrivateAccount() {
             }
         }
 
-        // Check for "This account is private" text
-        const pageText = document.body.textContent.toLowerCase();
-        if (pageText.includes('this account is private') || 
+        const profileRoot = document.querySelector('[data-e2e="user-page"]');
+        const pageText = (profileRoot || document.body).textContent.toLowerCase();
+        if (pageText.includes('this account is private') ||
             pageText.includes('private account') ||
-            pageText.includes('account is private') ||
-            pageText.includes('private')) {
+            pageText.includes('account is private')) {
             console.info('Private account text found in page content');
             return true;
         }
@@ -464,32 +505,31 @@ async function handlePrivateAccountBlocking(task) {
     try {
         // Step 1: Find and click the "More" button (3 dots)
         console.log('🔍 Step 1: Looking for more options button...');
-        const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
+        const selectorLists = await getSelectorLists();
+        const moreButton = await waitForAnyElement(selectorLists.more, 5000);
         if (!moreButton) {
             console.warn('❌ Could not find more options button');
             updateStatus(`Error blocking ${task.username}: Could not find more options button`, 'error');
             updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
+            addUsernameToBlockList(username, true);
             return;
         }
 
         console.log('✅ Step 1: Found more options button:', moreButton);
         console.log('🖱️ Step 1: Clicking more options button...');
-        simulateMouseEvent(moreButton, 'click');
-        console.log('⏳ Step 1: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 1: Wait complete');
-
-        // Step 2: Find and click the "Block" option in the popover
-        console.log('🔍 Step 2: Looking for block option in popover...');
-        const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
+        const menuAction = await openActionsAndFindBlock(moreButton);
+        if (menuAction && menuAction.type === 'unblock') {
+            console.info('Unblock is visible, so ' + task.username + ' is already blocked');
+            updateStatus('User ' + task.username + ' is already blocked on TikTok', 'info');
+            updateBlockingStats('alreadyBlocked');
+            return;
+        }
+        const blockOption = menuAction && menuAction.element;
         if (!blockOption) {
             console.warn('❌ Could not find block option in popover');
-            updateStatus(`Error blocking ${task.username}: Could not find block option`, 'error');
+            updateStatus('Error blocking ' + task.username + ': Could not find block option', 'error');
             updateBlockingStats('errors');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
             return;
         }
 
@@ -502,13 +542,21 @@ async function handlePrivateAccountBlocking(task) {
 
         // Step 3: Find and click the "Block" button in the confirmation modal
         console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
+        let confirmButton = await waitForAnyElement(selectorLists.confirm, 2500).catch(() => null);
+        if (!confirmButton) confirmButton = await new Promise(function(resolve) {
+            const end = Date.now() + 2000;
+            const t = setInterval(function() {
+                if (Date.now() > end) { clearInterval(t); resolve(null); return; }
+                var el = findConfirmBlockByText();
+                if (el) { clearInterval(t); resolve(el); }
+            }, 200);
+        });
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
             updateStatus(`Error blocking ${task.username}: Could not find confirm button`, 'error');
             updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
+            addUsernameToBlockList(username, true);
             return;
         }
 
@@ -525,7 +573,7 @@ async function handlePrivateAccountBlocking(task) {
         updateBlockingStats('errors');
         // Add to block list as fallback
         const username = window.location.pathname.split('/')[1];
-        addUsernameToBlockList(username);
+        addUsernameToBlockList(username, true);
     }
 }
 
@@ -537,32 +585,31 @@ async function handlePublicAccountBlocking(task) {
     try {
         // Step 1: Find and click the "More" button (3 dots)
         console.log('🔍 Step 1: Looking for more options button...');
-        const moreButton = await waitForElement('[data-e2e="user-more"]', 5000);
+        const selectorLists = await getSelectorLists();
+        const moreButton = await waitForAnyElement(selectorLists.more, 5000);
         if (!moreButton) {
             console.warn('❌ Could not find more options button');
             updateStatus(`Error blocking ${task.username}: Could not find more options button`, 'error');
             updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
+            addUsernameToBlockList(username, true);
             return;
         }
 
         console.log('✅ Step 1: Found more options button:', moreButton);
         console.log('🖱️ Step 1: Clicking more options button...');
-        simulateMouseEvent(moreButton, 'click');
-        console.log('⏳ Step 1: Waiting after click...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('✅ Step 1: Wait complete');
-
-        // Step 2: Find and click the "Block" option in the popover
-        console.log('🔍 Step 2: Looking for block option in popover...');
-        const blockOption = await waitForElement('div[role="button"][aria-label="Block"]', 3000);
+        const menuAction = await openActionsAndFindBlock(moreButton);
+        if (menuAction && menuAction.type === 'unblock') {
+            console.info('Unblock is visible, so ' + task.username + ' is already blocked');
+            updateStatus('User ' + task.username + ' is already blocked on TikTok', 'info');
+            updateBlockingStats('alreadyBlocked');
+            return;
+        }
+        const blockOption = menuAction && menuAction.element;
         if (!blockOption) {
             console.warn('❌ Could not find block option in popover');
-            updateStatus(`Error blocking ${task.username}: Could not find block option`, 'error');
+            updateStatus('Error blocking ' + task.username + ': Could not find block option', 'error');
             updateBlockingStats('errors');
-            const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
             return;
         }
 
@@ -575,13 +622,21 @@ async function handlePublicAccountBlocking(task) {
 
         // Step 3: Find and click the "Block" button in the confirmation modal
         console.log('🔍 Step 3: Looking for confirm button in modal...');
-        const confirmButton = await waitForElement('button[data-e2e="block-popup-block-btn"], button[class*="Button-StyledButtonBlock"]', 3000);
+        let confirmButton = await waitForAnyElement(selectorLists.confirm, 2500).catch(() => null);
+        if (!confirmButton) confirmButton = await new Promise(function(resolve) {
+            const end = Date.now() + 2000;
+            const t = setInterval(function() {
+                if (Date.now() > end) { clearInterval(t); resolve(null); return; }
+                var el = findConfirmBlockByText();
+                if (el) { clearInterval(t); resolve(el); }
+            }, 200);
+        });
         if (!confirmButton) {
             console.warn('❌ Could not find confirm button in modal');
             updateStatus(`Error blocking ${task.username}: Could not find confirm button`, 'error');
             updateBlockingStats('errors');
             const username = window.location.pathname.split('/')[1];
-            addUsernameToBlockList(username);
+            addUsernameToBlockList(username, true);
             return;
         }
 
@@ -598,7 +653,7 @@ async function handlePublicAccountBlocking(task) {
         updateBlockingStats('errors');
         // Add to block list as fallback
         const username = window.location.pathname.split('/')[1];
-        addUsernameToBlockList(username);
+        addUsernameToBlockList(username, true);
     }
 }
 
@@ -650,17 +705,18 @@ function handleNextUser() {
             
             chrome.storage.local.set({
                 'autoBlockQueue': users,
-                'autoBlock': nextUser
+                'autoBlock': nextUser,
+                'autoBlockTaskSetAt': Date.now()
             }, function() {
                 console.log('💾 Updated storage with next user:', nextUser);
                 const actionText = nextUser.action === 'unblock' ? 'unblocking' : 'blocking';
                 updateStatus(`Queue: ${users.length} users remaining (${actionText})`, 'info');
                 
                 // Check if we need to navigate to the user's page
-                const currentUsername = window.location.pathname.split('/')[1];
-                if (currentUsername !== nextUser.username) {
-                    console.log('🔄 Navigating to user page:', `https://www.tiktok.com/${nextUser.username}`);
-                    window.location.href = `https://www.tiktok.com/${nextUser.username}`;
+                if (!isOnProfile(nextUser.username)) {
+                    const nextUrl = profileUrl(nextUser.username);
+                    console.log('🔄 Navigating to user page:', nextUrl);
+                    window.location.href = nextUrl;
                 } else {
                     console.log('✅ Already on correct user page, starting process...');
                     checkForPostNavigationTask();
@@ -670,7 +726,7 @@ function handleNextUser() {
                     console.log('✅ No more users in the queue.');
                     displayBlockingStats();
                     updateStatus('Blocking process complete! All users processed.', 'success');
-                    chrome.storage.local.remove(['autoBlockQueue', 'autoBlock', 'blockingStats']);
+                    chrome.storage.local.remove(['autoBlockQueue', 'autoBlock', 'autoBlockTaskSetAt', 'blockingStats']);
                 }
     });
 }
@@ -699,33 +755,304 @@ function waitForElement(selector, timeout) {
     });
 }
 
+/** Try multiple selectors in order; resolve with first match or reject after timeout. */
+function waitForAnyElement(selectors, timeout) {
+    const intervalTime = 150;
+    const endTime = Number(new Date()) + timeout;
+    return new Promise((resolve, reject) => {
+        const tick = () => {
+            if (Number(new Date()) > endTime) {
+                reject(new Error("None of [" + selectors.slice(0, 3).join(", ") + "...] found within " + timeout + "ms"));
+                return;
+            }
+            for (let i = 0; i < selectors.length; i++) {
+                try {
+                    const el = document.querySelector(selectors[i]);
+                    if (el) {
+                        resolve(el);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('Invalid selector:', selectors[i], error);
+                }
+            }
+            setTimeout(tick, intervalTime);
+        };
+        tick();
+    });
+}
+
+// Selectors for block flow (TikTok may change; try data-e2e first, then aria/text)
+const MORE_BUTTON_SELECTORS = [
+    'button[data-e2e="user-more"]',
+    '[data-e2e="user-more"]',
+    'button[aria-label="Actions"]',
+    '[data-e2e="browse-user-more"]',
+    'button[aria-label="More options"]',
+    '[aria-label="More options"]'
+];
+const BLOCK_MENU_OPTION_SELECTORS = [
+    'div[role="button"][aria-label="Block"]',
+    '[role="button"][aria-label="Block"]',
+    '[aria-label="Block"]',
+    '[data-e2e="block-option"]'
+];
+function isShown(el) {
+    if (!el || !el.isConnected) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+}
+
+/** Visible menu row whose label is exactly `label` (for example "block" or "unblock"). */
+function findShownMenuItem(label) {
+    const want = String(label || '').trim().toLowerCase();
+    const nodes = document.querySelectorAll('button, [role="button"]');
+    for (let i = 0; i < nodes.length; i++) {
+        const el = nodes[i];
+        const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+        const text = (el.innerText || '').trim().toLowerCase();
+        if (aria !== want && text !== want) continue;
+        if (!isShown(el)) continue;
+        return el;
+    }
+    return null;
+}
+
+/** Fallback: find a visible Block menu item by its own text, not a parent that also contains Report. */
+function findBlockOptionByText() {
+    return findShownMenuItem('block');
+}
+const CONFIRM_BLOCK_BUTTON_SELECTORS = [
+    'button[data-e2e="block-popup-block-btn"]',
+    'button[class*="StyledButtonBlock"]',
+    'button[class*="Button-StyledButtonBlock"]',
+    '[data-e2e="block-popup-block-btn"]'
+];
+const SELECTOR_STORAGE_KEY = 'tiktokBlockSelectors';
+
+function withCustomSelector(customValue, defaults) {
+    const value = String(customValue || '').trim();
+    if (!value) return defaults.slice();
+    return [value].concat(defaults.filter(function(selector) { return selector !== value; }));
+}
+
+function getSelectorLists() {
+    return new Promise(function(resolve) {
+        chrome.storage.local.get([SELECTOR_STORAGE_KEY], function(result) {
+            const custom = result[SELECTOR_STORAGE_KEY] || {};
+            resolve({
+                more: withCustomSelector(custom.more, MORE_BUTTON_SELECTORS),
+                block: withCustomSelector(custom.block, BLOCK_MENU_OPTION_SELECTORS),
+                confirm: withCustomSelector(custom.confirm, CONFIRM_BLOCK_BUTTON_SELECTORS)
+            });
+        });
+    });
+}
+
+function selectorForElement(start) {
+    let el = start;
+    for (let i = 0; i < 6 && el && el !== document.body; i++) {
+        const e2e = el.getAttribute && el.getAttribute('data-e2e');
+        if (e2e) {
+            return el.tagName.toLowerCase() + '[data-e2e="' + e2e.replace(/"/g, '\\"') + '"]';
+        }
+        const aria = el.getAttribute && el.getAttribute('aria-label');
+        const role = el.getAttribute && el.getAttribute('role');
+        if (aria && (role === 'button' || el.tagName === 'BUTTON')) {
+            const rolePart = role ? '[role="' + role + '"]' : '';
+            return el.tagName.toLowerCase() + rolePart + '[aria-label="' + aria.replace(/"/g, '\\"') + '"]';
+        }
+        el = el.parentElement;
+    }
+    return '';
+}
+
+let activePicker = null;
+
+function stopElementPicker() {
+    if (!activePicker) return;
+    document.removeEventListener('click', activePicker.onClick, true);
+    document.removeEventListener('keydown', activePicker.onKey, true);
+    if (activePicker.banner && activePicker.banner.parentNode) {
+        activePicker.banner.parentNode.removeChild(activePicker.banner);
+    }
+    activePicker = null;
+}
+
+function startElementPicker(slot) {
+    stopElementPicker();
+    const labels = { more: 'Actions (⋯) button', block: 'Block menu item', confirm: 'Block confirmation button' };
+    const banner = document.createElement('div');
+    banner.id = 'tiktok-autoblocker-picker';
+    banner.textContent = 'Click the ' + (labels[slot] || 'target') + ' on this page. Press Esc to cancel.';
+    banner.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#111;color:#fff;padding:10px 14px;border-radius:8px;font:14px/1.4 sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35);';
+    (document.body || document.documentElement).appendChild(banner);
+
+    function onClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const selector = selectorForElement(event.target);
+        stopElementPicker();
+        if (!selector) {
+            console.warn('Could not build a selector from that click');
+            return;
+        }
+        chrome.storage.local.get([SELECTOR_STORAGE_KEY], function(result) {
+            const custom = result[SELECTOR_STORAGE_KEY] || {};
+            custom[slot] = selector;
+            chrome.storage.local.set({ [SELECTOR_STORAGE_KEY]: custom }, function() {
+                console.log('Saved selector', slot, selector);
+            });
+        });
+    }
+
+    function onKey(event) {
+        if (event.key === 'Escape') stopElementPicker();
+    }
+
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    activePicker = { onClick: onClick, onKey: onKey, banner: banner };
+}
+
+function describeSelectorMatches(selectors) {
+    return selectors.map(function(selector) {
+        let count = 0;
+        let error = '';
+        try {
+            count = document.querySelectorAll(selector).length;
+        } catch (err) {
+            error = err.message;
+        }
+        return { selector: selector, count: count, error: error };
+    });
+}
+
+/** Fallback: find the Block button in a modal by its text. */
+function findConfirmBlockByText() {
+    const dialogs = document.querySelectorAll('[role="dialog"], [data-e2e*="block-popup"], [class*="Modal"], [class*="modal"]');
+    for (let i = 0; i < dialogs.length; i++) {
+        const buttons = dialogs[i].querySelectorAll('button, [role="button"]');
+        for (let j = 0; j < buttons.length; j++) {
+            const b = buttons[j];
+            if (b.textContent && b.textContent.trim().toLowerCase() === 'block') return b;
+        }
+    }
+    return null;
+}
+
 /**
  * Simulates a mouse event on the specified element.
  * @param {Element} element - The DOM element to target.
  * @param {String} eventType - The type of event ('click', 'mouseover', etc.).
  */
 function simulateMouseEvent(element, eventType) {
-    console.log(`Simulating ${eventType} event`);
-    const event = new MouseEvent(eventType, {
-        view: window,
-        bubbles: true,
-        cancelable: true
+    if (!element) return;
+    console.log('Simulating ' + eventType + ' event in the page');
+    document.querySelectorAll('[data-tiktok-autoblocker-target]').forEach(function (node) {
+        node.removeAttribute('data-tiktok-autoblocker-target');
     });
-    element.dispatchEvent(event);
-    console.log(`${eventType} event triggered`);
+    // page-world.js watches this attribute and calls TikTok's React click handler.
+    // A content-script click never reaches that handler, so the Block menu never opens.
+    element.setAttribute('data-tiktok-autoblocker-target', '1');
 }
 
-// Add current profile username to blocklist
-function addUserToBlockList() {
-    const username = window.location.pathname.split('/')[1];
+function findBlockInReportMenu() {
+    const root = document.querySelector('[data-e2e="user-report"]');
+    if (!root) return null;
+    const nodes = root.querySelectorAll('button, [role="button"]');
+    for (let i = 0; i < nodes.length; i++) {
+        const aria = (nodes[i].getAttribute('aria-label') || '').trim().toLowerCase();
+        const text = (nodes[i].innerText || '').trim().toLowerCase();
+        if ((aria === 'block' || text === 'block') && isShown(nodes[i])) return nodes[i];
+    }
+    return null;
+}
+
+function waitForMenuAction(timeout) {
+    return new Promise(function (resolve) {
+        const end = Date.now() + timeout;
+        const timer = setInterval(function () {
+            const unblock = findShownMenuItem('unblock') || findShownMenuItem('unblock user');
+            if (unblock) {
+                clearInterval(timer);
+                resolve({ type: 'unblock', element: unblock });
+                return;
+            }
+            const block = findShownMenuItem('block') || findBlockInReportMenu();
+            if (block) {
+                clearInterval(timer);
+                resolve({ type: 'block', element: block });
+                return;
+            }
+            if (Date.now() > end) {
+                clearInterval(timer);
+                resolve(null);
+            }
+        }, 150);
+    });
+}
+
+function currentActionsButton(fallback) {
+    const buttons = document.querySelectorAll('button[data-e2e="user-more"]');
+    for (let i = 0; i < buttons.length; i++) {
+        const rect = buttons[i].getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return buttons[i];
+    }
+    return fallback && fallback.isConnected ? fallback : null;
+}
+
+function profileMenuIsOpen() {
+    const report = document.querySelector('[data-e2e="user-report"]');
+    return !!(report && isShown(report));
+}
+
+async function openActionsAndFindBlock(moreButton) {
+    for (let attempt = 0; attempt < 4; attempt++) {
+        if (!profileMenuIsOpen()) {
+            const current = currentActionsButton(moreButton);
+            if (!current) {
+                await new Promise(function (resolve) { setTimeout(resolve, 500); });
+                continue;
+            }
+            try {
+                current.scrollIntoView({ block: 'center', inline: 'nearest' });
+            } catch (error) {}
+            simulateMouseEvent(current, 'click');
+        }
+        const action = await waitForMenuAction(2000);
+        if (action) return action;
+    }
+    return null;
+}
+
+/** Usernames that are actually error/special paths – never add to block list or treat as profile */
+const INVALID_USERNAME_PATHS = new Set(['404', '500', 'error', 'null', 'undefined']);
+
+// Add current profile username to blocklist. Calls done(success, alreadyInList) when finished (so popup can avoid spam/race).
+// Keeps @ if present in URL (e.g. /@ai.movie66 → "@ai.movie66") so downloaded list matches user expectation.
+function addUserToBlockList(done) {
+    const username = (window.location.pathname.split('/')[1] || '').trim();
+    const normalized = username.replace(/^@/, '').toLowerCase();
+    if (!username || INVALID_USERNAME_PATHS.has(normalized)) {
+        console.warn('Cannot add current page to block list (not a valid profile URL).');
+        if (done) done(false, false);
+        return;
+    }
     chrome.storage.local.get([blockListKey], function(result) {
         const blockList = result[blockListKey] || [];
-        if (!blockList.includes(username)) {
+        const norm = function(u) { return (u || '').replace(/^@/, '').toLowerCase(); };
+        const already = blockList.some(function(u) { return norm(u) === norm(username); });
+        if (!already) {
             blockList.push(username);
             chrome.storage.local.set({ [blockListKey]: blockList });
             console.info(`Added ${username} to block list.`);
+            if (done) done(true, false);
         } else {
             console.info(`${username} is already in the block list.`);
+            if (done) done(true, true);
         }
     });
 }
@@ -790,90 +1117,23 @@ function resetBlockingStats() {
  * @returns {Promise<boolean>} True if the user is already blocked
  */
 async function checkIfAlreadyBlocked() {
-    try {
-        console.log('🔍 Checking if user is already blocked...');
-        
-        // Look for indicators that the user is already blocked
-        const blockedIndicators = [
-            '[data-e2e="user-more"]', // More button should exist
-            'div[role="button"][aria-label="Unblock"]', // Unblock option in menu
-            'div[role="button"][aria-label="Unblock user"]', // Alternative unblock text
-            '.unblock-button', // CSS class for unblock
-            '[data-e2e="unblock"]' // Data attribute for unblock
-        ];
-
-        // First, try to find the "More" button
-        const moreButton = document.querySelector('[data-e2e="user-more"]');
-        if (!moreButton) {
-            console.log('❌ Could not find more button - user might not be accessible');
-            console.log('🔍 Available buttons with data-e2e:');
-            const e2eButtons = document.querySelectorAll('[data-e2e]');
-            e2eButtons.forEach((btn, index) => {
-                console.log(`  ${index}: ${btn.getAttribute('data-e2e')} - ${btn.textContent?.trim()}`);
-            });
-            return false;
-        }
-
-        // Click the more button to open the menu
-        console.log('🖱️ Clicking more button to check blocking status...');
-        simulateMouseEvent(moreButton, 'click');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Look for unblock option in the menu
-        for (const selector of blockedIndicators) {
-            const element = document.querySelector(selector);
-            if (element) {
-                console.log(`✅ Found unblock option with selector: ${selector}`);
-                console.log('✅ User is already blocked');
-                // Close the menu by clicking outside or pressing escape
-                document.body.click();
-                await new Promise(resolve => setTimeout(resolve, 500));
-                return true;
-            }
-        }
-
-        // If we don't find unblock option, check for block option
-        const blockOption = document.querySelector('div[role="button"][aria-label="Block"]');
-        if (blockOption) {
-            console.log('✅ Found block option, user is not blocked');
-            // Close the menu
-            document.body.click();
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return false;
-        }
-
-        console.log('❓ Could not determine blocking status - no unblock or block option found');
-        console.log('🔍 Available menu options:');
-        const menuOptions = document.querySelectorAll('div[role="button"]');
-        menuOptions.forEach((option, index) => {
-            console.log(`  ${index}: ${option.getAttribute('aria-label')} - ${option.textContent?.trim()}`);
-        });
-        // Close the menu
-        document.body.click();
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return false;
-
-    } catch (error) {
-        console.error('❌ Error checking if user is already blocked:', error);
-        return false;
-    }
+    return !!(findShownMenuItem('unblock') || findShownMenuItem('unblock user'));
 }
 
 // Add a specific username to blocklist (for use in automation)
-function addUsernameToBlockList(username) {
+function addUsernameToBlockList(username, quiet) {
     chrome.storage.local.get([blockListKey], function(result) {
         const blockList = result[blockListKey] || [];
         if (!blockList.includes(username)) {
             blockList.push(username);
             chrome.storage.local.set({ [blockListKey]: blockList });
-            console.info(`Added ${username} to block list.`);
-            updateStatus(`Added ${username} to block list`, 'success');
+            console.info('Added ' + username + ' to block list.');
+            if (!quiet) updateStatus('Added ' + username + ' to block list', 'success');
             return true;
-        } else {
-            console.info(`${username} is already in the block list.`);
-            updateStatus(`${username} is already in block list`, 'info');
-            return false;
         }
+        console.info(username + ' is already in the block list.');
+        if (!quiet) updateStatus(username + ' is already in block list', 'info');
+        return false;
     });
 }
 
@@ -889,9 +1149,44 @@ function updateStatus(message, type = 'info') {
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    if (request.action === 'addCurrentUser') {
-        addUserToBlockList();
-        sendResponse({success: true});
+    if (request.action === 'ping') {
+        sendResponse({ ok: true });
+        return false;
+    } else if (request.action === 'getSelectors') {
+        chrome.storage.local.get([SELECTOR_STORAGE_KEY], function(result) {
+            sendResponse({ selectors: result[SELECTOR_STORAGE_KEY] || {} });
+        });
+        return true;
+    } else if (request.action === 'saveSelectors') {
+        const incoming = request.selectors || {};
+        const selectors = {
+            more: String(incoming.more || '').trim(),
+            block: String(incoming.block || '').trim(),
+            confirm: String(incoming.confirm || '').trim()
+        };
+        chrome.storage.local.set({ [SELECTOR_STORAGE_KEY]: selectors }, function() {
+            sendResponse({ success: !chrome.runtime.lastError, selectors: selectors });
+        });
+        return true;
+    } else if (request.action === 'testSelectors') {
+        getSelectorLists().then(function(lists) {
+            sendResponse({
+                success: true,
+                more: describeSelectorMatches(lists.more),
+                block: describeSelectorMatches(lists.block),
+                confirm: describeSelectorMatches(lists.confirm)
+            });
+        });
+        return true;
+    } else if (request.action === 'pickElement') {
+        startElementPicker(request.slot);
+        sendResponse({ success: true });
+        return false;
+    } else if (request.action === 'addCurrentUser') {
+        addUserToBlockList(function(success, alreadyInList) {
+            sendResponse({ success: success, alreadyInList: !!alreadyInList });
+        });
+        return true; // keep channel open for async sendResponse
     } else if (request.action === 'downloadBlockList') {
         chrome.storage.local.get([blockListKey], function(result) {
             const blockList = result[blockListKey] || [];
@@ -949,7 +1244,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         sendResponse({success: true});
     } else if (request.action === 'clearStuckTasks') {
         // Clear stuck tasks
-        chrome.storage.local.remove(['autoBlock', 'autoBlockQueue'], function() {
+        chrome.storage.local.remove(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt'], function() {
             console.log('🗑️ Cleared stuck tasks and queue');
             sendResponse({success: true});
         });
@@ -1145,4 +1440,6 @@ async function testBlockingProcess() {
     } else {
         console.log('❌ More options button not found');
     }
-} 
+}
+
+})();

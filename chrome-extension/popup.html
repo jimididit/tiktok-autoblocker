@@ -279,6 +279,53 @@
             margin-bottom: 8px;
         }
 
+        .selectors {
+            margin-top: 8px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .selectors summary {
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .selectors label {
+            display: block;
+            margin-top: 10px;
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .selectors input {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 4px;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .selectors .row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .selectors .row .button {
+            margin-top: 6px;
+        }
+
+        .selector-hint {
+            margin: 8px 0 0 0;
+            font-size: 11px;
+            line-height: 1.4;
+            opacity: 0.85;
+        }
+
 
     </style>
 </head>
@@ -301,10 +348,36 @@
 
     <div class="file-input-container">
         <label for="fileInput" class="file-input-label">
-            📁 Upload Block List (.txt)
+            📁 Upload Block List (.txt or .json)
         </label>
-        <input type="file" id="fileInput" class="file-input" accept=".txt">
+        <input type="file" id="fileInput" class="file-input" accept=".txt,.json,text/plain,application/json">
     </div>
+    <button id="helpBlockList" type="button" class="button secondary" style="font-size: 12px; padding: 8px 12px;">
+        ❓ How do I get my existing blocked list from TikTok?
+    </button>
+
+    <details id="selectorSettings" class="selectors">
+        <summary>Page selectors</summary>
+        <p class="selector-hint">Used when TikTok changes the profile buttons. Leave a field empty to keep the built-in selector. Pick closes this popup; click the control on the page, then reopen the popup.</p>
+        <label for="selectorMore">Actions (⋯) button</label>
+        <input id="selectorMore" type="text" spellcheck="false" placeholder='button[data-e2e="user-more"]'>
+        <div class="row">
+            <button id="pickMore" type="button" class="button secondary">Pick</button>
+        </div>
+        <label for="selectorBlock">Block menu item</label>
+        <input id="selectorBlock" type="text" spellcheck="false" placeholder='div[role="button"][aria-label="Block"]'>
+        <div class="row">
+            <button id="pickBlock" type="button" class="button secondary">Pick</button>
+        </div>
+        <label for="selectorConfirm">Confirm Block button</label>
+        <input id="selectorConfirm" type="text" spellcheck="false" placeholder='button[data-e2e="block-popup-block-btn"]'>
+        <div class="row">
+            <button id="pickConfirm" type="button" class="button secondary">Pick</button>
+        </div>
+        <button id="saveSelectors" type="button" class="button primary">Save selectors</button>
+        <button id="testSelectors" type="button" class="button secondary">Test on this page</button>
+        <button id="resetSelectors" type="button" class="button secondary">Reset to defaults</button>
+    </details>
 
     <!-- Debug Features Section (controlled by DEBUG_MODE_ENABLED) -->
     <div id="debugFeatures" class="debug-features" style="display: none;">
@@ -343,8 +416,8 @@
     <div class="divider"></div>
 
     <div class="footer">
-        <div>v0.5.0 - Private Account Support</div>
-        <div>Enhanced with real-time status updates</div>
+        <div>v0.6.1 - Selector overrides &amp; block fixes</div>
+        <div>Upload .txt or TikTok data export .json</div>
     </div>
 
     <script src="popup.js"></script>
