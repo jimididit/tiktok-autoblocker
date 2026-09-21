@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('pickMore').addEventListener('click', function() { pickSelector('more'); });
     document.getElementById('pickBlock').addEventListener('click', function() { pickSelector('block'); });
     document.getElementById('pickConfirm').addEventListener('click', function() { pickSelector('confirm'); });
+    document.getElementById('pickBlockedAccount').addEventListener('click', function() { pickSelector('blockedAccount'); });
     loadSelectors();
     
     // Add debug event listeners only if debug mode is enabled
@@ -87,7 +88,8 @@ function selectorFields() {
     return {
         more: document.getElementById('selectorMore').value.trim(),
         block: document.getElementById('selectorBlock').value.trim(),
-        confirm: document.getElementById('selectorConfirm').value.trim()
+        confirm: document.getElementById('selectorConfirm').value.trim(),
+        blockedAccount: document.getElementById('selectorBlockedAccount').value.trim()
     };
 }
 
@@ -95,6 +97,7 @@ function fillSelectorFields(selectors) {
     document.getElementById('selectorMore').value = (selectors && selectors.more) || '';
     document.getElementById('selectorBlock').value = (selectors && selectors.block) || '';
     document.getElementById('selectorConfirm').value = (selectors && selectors.confirm) || '';
+    document.getElementById('selectorBlockedAccount').value = (selectors && selectors.blockedAccount) || '';
 }
 
 function loadSelectors() {
@@ -125,7 +128,7 @@ function activeTikTokTab(callback) {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         const currentTab = tabs[0];
         if (!currentTab || !currentTab.url || currentTab.url.indexOf('tiktok.com') === -1) {
-            updateStatus('Open a TikTok profile page first.', 'warning');
+            updateStatus('Open a TikTok page first.', 'warning');
             return;
         }
         callback(currentTab);
@@ -146,7 +149,7 @@ function testSelectors() {
                     }
                     return 'not visible';
                 }
-                updateStatus('Actions: ' + firstHit(response.more) + '\nBlock item: ' + firstHit(response.block) + '\nConfirm: ' + firstHit(response.confirm), 'info');
+                updateStatus('Actions: ' + firstHit(response.more) + '\nBlock item: ' + firstHit(response.block) + '\nConfirm: ' + firstHit(response.confirm) + '\nBlocked-account username: ' + firstHit(response.blockedAccount || []), 'info');
             });
         });
     });
@@ -329,12 +332,12 @@ function importBlockedAccounts() {
         const onBlockList = currentTab.url && currentTab.url.includes('/setting/block-list');
         if (!onTikTok) {
             chrome.tabs.create({ url: BLOCKED_ACCOUNTS_URL });
-            updateStatus('Opened the Blocked accounts page. Click Import again after it loads.', 'info');
+            updateStatus('Opened the Blocked accounts page. Click Add my blocked accounts again after it loads.', 'info');
             return;
         }
         if (!onBlockList) {
             chrome.tabs.update(currentTab.id, { url: BLOCKED_ACCOUNTS_URL });
-            updateStatus('Opened the Blocked accounts page. Click Import again after it loads.', 'info');
+            updateStatus('Opened the Blocked accounts page. Click Add my blocked accounts again after it loads.', 'info');
             return;
         }
         updateStatus('Reading blocked accounts…', 'info');
@@ -354,7 +357,7 @@ function importBlockedAccounts() {
                 } else if (response.added === 0) {
                     updateStatus('All ' + response.found + ' blocked accounts are already in your list.', 'info');
                 } else {
-                    updateStatus('Imported ' + response.added + ' new usernames (' + response.total + ' in your list). Use Download Block List to save a file.', 'success');
+                    updateStatus('Added ' + response.added + ' blocked accounts (' + response.total + ' in your list). Download Block List saves all of them, including ones you added yourself.', 'success');
                 }
             });
         });

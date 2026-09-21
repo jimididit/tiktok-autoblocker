@@ -293,6 +293,12 @@
             font-weight: 600;
         }
 
+        .selectors .selector-group {
+            margin: 14px 0 0;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
         .selectors label {
             display: block;
             margin-top: 10px;
@@ -353,7 +359,7 @@
         <input type="file" id="fileInput" class="file-input" accept=".txt,.json,text/plain,application/json">
     </div>
     <button id="importBlockedAccounts" type="button" class="button secondary">
-        Import blocked accounts
+        Add my blocked accounts
     </button>
     <button id="helpBlockList" type="button" class="button secondary" style="font-size: 12px; padding: 8px 12px;">
         ❓ How do I get my existing blocked list from TikTok?
@@ -361,7 +367,8 @@
 
     <details id="selectorSettings" class="selectors">
         <summary>Page selectors</summary>
-        <p class="selector-hint">Used when TikTok changes the profile buttons. Leave a field empty to keep the built-in selector. Pick closes this popup; click the control on the page, then reopen the popup.</p>
+        <p class="selector-hint">Leave a field empty to keep the built-in selector. Pick closes this popup; click the control on the page, then reopen the popup.</p>
+        <p class="selector-group">Blocking a profile</p>
         <label for="selectorMore">Actions (⋯) button</label>
         <input id="selectorMore" type="text" spellcheck="false" placeholder='button[data-e2e="user-more"]'>
         <div class="row">
@@ -376,6 +383,13 @@
         <input id="selectorConfirm" type="text" spellcheck="false" placeholder='button[data-e2e="block-popup-block-btn"]'>
         <div class="row">
             <button id="pickConfirm" type="button" class="button secondary">Pick</button>
+        </div>
+        <p class="selector-group">Blocked accounts page</p>
+        <p class="selector-hint">The element whose text is the username on tiktok.com/setting/block-list.</p>
+        <label for="selectorBlockedAccount">Username</label>
+        <input id="selectorBlockedAccount" type="text" spellcheck="false" placeholder='h3[data-e2e="block-user-username"]'>
+        <div class="row">
+            <button id="pickBlockedAccount" type="button" class="button secondary">Pick</button>
         </div>
         <button id="saveSelectors" type="button" class="button primary">Save selectors</button>
         <button id="testSelectors" type="button" class="button secondary">Test on this page</button>
@@ -419,7 +433,7 @@
     <div class="divider"></div>
 
     <div class="footer">
-        <div>v0.6.1 - Selector overrides &amp; block fixes</div>
+        <div>v0.7.0 - Add blocked accounts</div>
         <div>Upload .txt or TikTok data export .json</div>
     </div>
 

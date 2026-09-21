@@ -1,14 +1,12 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.6.1
+// @version      0.7.0
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        https://www.tiktok.com/*
 // @match        https://tiktok.com/*
-// @inject-into  content
 // @grant        unsafeWindow
-// @grant        GM_addStyle
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -477,6 +475,10 @@
         'button[class*="StyledButtonBlock"]',
         'button[class*="Button-StyledButtonBlock"]'
     ];
+    const DEFAULT_BLOCKED_ACCOUNT_SELECTORS = [
+        'h3[data-e2e="block-user-username"]',
+        '[data-e2e="block-user-username"]'
+    ];
 
     function readCustomSelectors() {
         try {
@@ -497,7 +499,8 @@
         return {
             more: withCustomSelector(custom.more, DEFAULT_MORE_SELECTORS),
             block: withCustomSelector(custom.block, DEFAULT_BLOCK_SELECTORS),
-            confirm: withCustomSelector(custom.confirm, DEFAULT_CONFIRM_SELECTORS)
+            confirm: withCustomSelector(custom.confirm, DEFAULT_CONFIRM_SELECTORS),
+            blockedAccount: withCustomSelector(custom.blockedAccount, DEFAULT_BLOCKED_ACCOUNT_SELECTORS)
         };
     }
 
@@ -623,17 +626,33 @@
     }
 
     function blockedAccountsList() {
-        const title = document.querySelector('[data-e2e="block-title"]');
-        if (!title || !/blocked accounts/i.test(title.textContent || '')) return null;
-        const parent = title.parentElement;
-        if (!parent) return null;
-        return parent.querySelector('[class*="DivBlockList"]');
+        if (location.pathname.indexOf('/setting/block-list') === -1) return null;
+        return document.querySelector('[class*="DivBlockList"]')
+            || document.getElementById('main-content-setting')
+            || document.body;
     }
 
-    function handlesInBlockedList(list) {
+    function handlesInBlockedList(list, selectors) {
+        const listSelectors = selectors && selectors.length ? selectors : DEFAULT_BLOCKED_ACCOUNT_SELECTORS;
+        for (let i = 0; i < listSelectors.length; i++) {
+            let nodes = [];
+            try {
+                nodes = list.querySelectorAll(listSelectors[i]);
+            } catch (error) {
+                continue;
+            }
+            const names = [];
+            nodes.forEach(function(node) {
+                const name = (node.textContent || '').replace(/^@/, '').trim();
+                if (name && !/[\s/]/.test(name)) names.push(name);
+            });
+            if (names.length) return names;
+        }
         const names = [];
         list.querySelectorAll('a[href*="/@"]').forEach(function(link) {
-            const name = handleFromProfileHref(link.getAttribute('href'));
+            const href = link.getAttribute('href') || '';
+            if (href.indexOf('/video/') !== -1) return;
+            const name = handleFromProfileHref(href);
             if (name) names.push(name);
         });
         return names;
@@ -664,6 +683,7 @@
     }
 
     async function collectBlockedHandles() {
+        const selectorLists = readSelectorLists();
         const started = Date.now();
         const seen = new Set();
         let stable = 0;
@@ -671,7 +691,7 @@
             const list = blockedAccountsList();
             if (!list) return { ok: false, reason: 'not-page' };
             const before = seen.size;
-            handlesInBlockedList(list).forEach(function(name) { seen.add(name); });
+            handlesInBlockedList(list, selectorLists.blockedAccount).forEach(function(name) { seen.add(name); });
             if (seen.size === before) stable += 1;
             else stable = 0;
             if (seen.size === 0 && Date.now() - started < 4000) stable = 0;
@@ -699,12 +719,17 @@
             return;
         }
         const existing = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
+        const seen = new Set(existing.map(function(name) {
+            return String(name || '').replace(/^@/, '').trim().toLowerCase();
+        }));
         let added = 0;
         result.usernames.forEach(function(name) {
-            if (existing.indexOf(name) === -1) {
-                existing.push(name);
-                added += 1;
-            }
+            const raw = String(name || '').replace(/^@/, '').trim();
+            const key = raw.toLowerCase();
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            existing.push('@' + raw);
+            added += 1;
         });
         pageStorage.setItem(blockListKey, JSON.stringify(existing));
         if (result.usernames.length === 0) {
@@ -712,7 +737,7 @@
         } else if (added === 0) {
             updateStatus('All ' + result.usernames.length + ' blocked accounts are already in your list.', 'info');
         } else {
-            updateStatus('Imported ' + added + ' new usernames. Download the list to save a file.', 'success');
+            updateStatus('Added ' + added + ' blocked accounts. Download the list to save everyone, including ones you added yourself.', 'success');
         }
     }
 
@@ -743,7 +768,7 @@
             addButton(card, 'Download Block List', downloadBlockList);
             console.log('✅ Download button added');
 
-            addButton(card, 'Import blocked accounts', importBlockedAccountsFromPage);
+            addButton(card, 'Add my blocked accounts', importBlockedAccountsFromPage);
             console.log('✅ Import button added');
             
             createFileInput(card);
@@ -927,6 +952,15 @@
         hint.style.margin = '8px 0';
         details.appendChild(hint);
 
+        function group(text) {
+            const heading = document.createElement('p');
+            heading.textContent = text;
+            heading.style.fontWeight = '700';
+            heading.style.fontSize = '12px';
+            heading.style.margin = '12px 0 0';
+            details.appendChild(heading);
+        }
+
         function field(labelText, key, placeholder) {
             const label = document.createElement('label');
             label.textContent = labelText;
@@ -946,16 +980,20 @@
             return input;
         }
 
+        group('Blocking a profile');
         const moreInput = field('Actions button', 'more', 'button[data-e2e="user-more"]');
         const blockInput = field('Block menu item', 'block', 'div[role="button"][aria-label="Block"]');
         const confirmInput = field('Confirm button', 'confirm', 'button[data-e2e="block-popup-block-btn"]');
-        const inputs = { more: moreInput, block: blockInput, confirm: confirmInput };
+        group('Blocked accounts page');
+        const blockedAccountInput = field('Username', 'blockedAccount', 'h3[data-e2e="block-user-username"]');
+        const inputs = { more: moreInput, block: blockInput, confirm: confirmInput, blockedAccount: blockedAccountInput };
 
         function currentValues() {
             return {
                 more: moreInput.value.trim(),
                 block: blockInput.value.trim(),
-                confirm: confirmInput.value.trim()
+                confirm: confirmInput.value.trim(),
+                blockedAccount: blockedAccountInput.value.trim()
             };
         }
 
@@ -1017,6 +1055,13 @@
         pickConfirm.style.width = '100%';
         pickConfirm.onclick = function() { pick('confirm', 'confirm button'); };
         details.appendChild(pickConfirm);
+
+        const pickBlockedAccount = document.createElement('button');
+        pickBlockedAccount.textContent = 'Pick username';
+        pickBlockedAccount.style.marginTop = '5px';
+        pickBlockedAccount.style.width = '100%';
+        pickBlockedAccount.onclick = function() { pick('blockedAccount', 'blocked-account username'); };
+        details.appendChild(pickBlockedAccount);
 
         card.appendChild(details);
     }

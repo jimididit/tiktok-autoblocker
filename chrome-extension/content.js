@@ -830,6 +830,10 @@ const CONFIRM_BLOCK_BUTTON_SELECTORS = [
     'button[class*="Button-StyledButtonBlock"]',
     '[data-e2e="block-popup-block-btn"]'
 ];
+const BLOCKED_ACCOUNT_USERNAME_SELECTORS = [
+    'h3[data-e2e="block-user-username"]',
+    '[data-e2e="block-user-username"]'
+];
 const SELECTOR_STORAGE_KEY = 'tiktokBlockSelectors';
 
 function withCustomSelector(customValue, defaults) {
@@ -845,7 +849,8 @@ function getSelectorLists() {
             resolve({
                 more: withCustomSelector(custom.more, MORE_BUTTON_SELECTORS),
                 block: withCustomSelector(custom.block, BLOCK_MENU_OPTION_SELECTORS),
-                confirm: withCustomSelector(custom.confirm, CONFIRM_BLOCK_BUTTON_SELECTORS)
+                confirm: withCustomSelector(custom.confirm, CONFIRM_BLOCK_BUTTON_SELECTORS),
+                blockedAccount: withCustomSelector(custom.blockedAccount, BLOCKED_ACCOUNT_USERNAME_SELECTORS)
             });
         });
     });
@@ -883,7 +888,7 @@ function stopElementPicker() {
 
 function startElementPicker(slot) {
     stopElementPicker();
-    const labels = { more: 'Actions (⋯) button', block: 'Block menu item', confirm: 'Block confirmation button' };
+    const labels = { more: 'Actions (⋯) button', block: 'Block menu item', confirm: 'Block confirmation button', blockedAccount: 'blocked-account username' };
     const banner = document.createElement('div');
     banner.id = 'tiktok-autoblocker-picker';
     banner.textContent = 'Click the ' + (labels[slot] || 'target') + ' on this page. Press Esc to cancel.';
@@ -1124,17 +1129,38 @@ function handleFromProfileHref(href) {
 }
 
 function blockedAccountsList() {
-    const title = document.querySelector('[data-e2e="block-title"]');
-    if (!title || !/blocked accounts/i.test(title.textContent || '')) return null;
-    const parent = title.parentElement;
-    if (!parent) return null;
-    return parent.querySelector('[class*="DivBlockList"]');
+    if (location.pathname.indexOf('/setting/block-list') === -1) return null;
+    return document.querySelector('[class*="DivBlockList"]')
+        || document.getElementById('main-content-setting')
+        || document.body;
 }
 
-function handlesInBlockedList(list) {
+function handlesFromNodes(nodes) {
+    const names = [];
+    nodes.forEach(function(node) {
+        const name = (node.textContent || '').replace(/^@/, '').trim();
+        if (name && !/[\s/]/.test(name)) names.push(name);
+    });
+    return names;
+}
+
+function handlesInBlockedList(list, selectors) {
+    const listSelectors = selectors && selectors.length ? selectors : BLOCKED_ACCOUNT_USERNAME_SELECTORS;
+    for (let i = 0; i < listSelectors.length; i++) {
+        let nodes = [];
+        try {
+            nodes = list.querySelectorAll(listSelectors[i]);
+        } catch (error) {
+            continue;
+        }
+        const names = handlesFromNodes(nodes);
+        if (names.length) return names;
+    }
     const names = [];
     list.querySelectorAll('a[href*="/@"]').forEach(function(link) {
-        const name = handleFromProfileHref(link.getAttribute('href'));
+        const href = link.getAttribute('href') || '';
+        if (href.indexOf('/video/') !== -1) return;
+        const name = handleFromProfileHref(href);
         if (name) names.push(name);
     });
     return names;
@@ -1169,6 +1195,7 @@ function clickBlockedListLoadMore(list) {
  * Only links inside the list count. Scrolling lets TikTok render the next rows.
  */
 async function collectBlockedHandles() {
+    const selectorLists = await getSelectorLists();
     const started = Date.now();
     const seen = new Set();
     let stable = 0;
@@ -1176,7 +1203,7 @@ async function collectBlockedHandles() {
         const list = blockedAccountsList();
         if (!list) return { ok: false, reason: 'not-page' };
         const before = seen.size;
-        handlesInBlockedList(list).forEach(function(name) { seen.add(name); });
+        handlesInBlockedList(list, selectorLists.blockedAccount).forEach(function(name) { seen.add(name); });
         if (seen.size === before) stable += 1;
         else stable = 0;
         if (seen.size === 0 && Date.now() - started < 4000) stable = 0;
@@ -1192,15 +1219,20 @@ async function collectBlockedHandles() {
     return { ok: true, usernames: Array.from(seen) };
 }
 
+function blockListKeyOf(name) {
+    return String(name || '').replace(/^@/, '').trim().toLowerCase();
+}
+
 function mergeUsernamesIntoBlockList(usernames, done) {
     chrome.storage.local.get([blockListKey], function(stored) {
-        const existing = stored[blockListKey] || [];
-        const merged = existing.slice();
+        const merged = (stored[blockListKey] || []).slice();
+        const seen = new Set(merged.map(blockListKeyOf));
         let added = 0;
         usernames.forEach(function(name) {
-            const clean = String(name || '').replace(/^@/, '').trim();
-            if (!clean || merged.indexOf(clean) !== -1) return;
-            merged.push(clean);
+            const key = blockListKeyOf(name);
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            merged.push('@' + String(name).replace(/^@/, '').trim());
             added += 1;
         });
         chrome.storage.local.set({ [blockListKey]: merged }, function() {
@@ -1263,7 +1295,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         const selectors = {
             more: String(incoming.more || '').trim(),
             block: String(incoming.block || '').trim(),
-            confirm: String(incoming.confirm || '').trim()
+            confirm: String(incoming.confirm || '').trim(),
+            blockedAccount: String(incoming.blockedAccount || '').trim()
         };
         chrome.storage.local.set({ [SELECTOR_STORAGE_KEY]: selectors }, function() {
             sendResponse({ success: !chrome.runtime.lastError, selectors: selectors });
@@ -1275,7 +1308,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 success: true,
                 more: describeSelectorMatches(lists.more),
                 block: describeSelectorMatches(lists.block),
-                confirm: describeSelectorMatches(lists.confirm)
+                confirm: describeSelectorMatches(lists.confirm),
+                blockedAccount: describeSelectorMatches(lists.blockedAccount)
             });
         });
         return true;

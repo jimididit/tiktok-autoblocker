@@ -1,5 +1,7 @@
 # TikTok AutoBlocker
 
+![Version 0.7.0](https://img.shields.io/badge/version-0.7.0-ff4757)
+
 <p>
   <img src="assets/extension-screenshot.png" width="100%" alt="Extension screenshot">
 </p>
@@ -15,6 +17,7 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 - **Real-time Status Updates**: Live progress feedback during blocking operations
 - **Enhanced Error Handling**: Gracefully handles deleted, banned, or inaccessible accounts
 - **Block List Management**: Add users, download blocklists, and upload existing lists
+- **Add accounts you have already blocked**: On [tiktok.com/setting/block-list](https://www.tiktok.com/setting/block-list), **Add my blocked accounts** appends those usernames to your saved list. Names you added yourself stay, and blocking does not start
 
 ### Advanced Features
 
@@ -142,15 +145,15 @@ TikTok’s **full data archive** can include a **Block List** (date + username).
 
 *Note: If your export doesn’t include a block list, request the full archive; the Block List is part of the full archive in TikTok’s data portability.*
 
-### Option 2: Import from the Blocked accounts page
+### Option 2: Add accounts you have already blocked
 
 While logged in on TikTok web:
 
 1. Open [tiktok.com/setting/block-list](https://www.tiktok.com/setting/block-list).
-2. Click the extension icon, then **Import blocked accounts**. The userscript card has the same button.
-3. Click **Download Block List** to save the usernames as a `.txt` file.
+2. Click the extension icon, then **Add my blocked accounts**. The userscript card has the same button.
+3. Click **Download Block List** to save the `.txt` file.
 
-The import reads only the list on that page. It adds those usernames to the saved list and does not start blocking. Upload that file on the other account when you want to block them. If the page is empty, use Option 1.
+That button appends the usernames from TikTok's Blocked accounts page. Names you added yourself stay in the list. Click it again after you block more people and only the new names are added. Download Block List writes the whole saved list. It does not start blocking. If the page is empty, use Option 1.
 
 ---
 
@@ -181,6 +184,12 @@ Your blocklist text file should contain usernames, one per line:
 1. Click the extension icon
 2. Click "Download Block List" to download your current blocklist as a .txt file
 
+#### Add accounts you have already blocked
+
+1. While logged in, open [tiktok.com/setting/block-list](https://www.tiktok.com/setting/block-list)
+2. Click the extension icon, then **Add my blocked accounts**
+3. Those usernames are appended to your saved list. **Download Block List** saves all of them, including ones you added yourself
+
 #### Mass Blocking Users
 
 1. Create a text file with one username per line (e.g., `@username1`, `@username2`)
@@ -201,6 +210,12 @@ Your blocklist text file should contain usernames, one per line:
 1. On any TikTok page, find the TikTok AutoBlocker card
 2. Click "Download Block List" to download your current blocklist as a .txt file
 3. The file will be saved to your default downloads folder
+
+#### Add accounts you have already blocked
+
+1. While logged in, open [tiktok.com/setting/block-list](https://www.tiktok.com/setting/block-list)
+2. On the TikTok AutoBlocker card, click **Add my blocked accounts**
+3. Those usernames are appended to your saved list. **Download Block List** saves all of them, including ones you added yourself
 
 #### Mass Blocking Users
 
@@ -264,7 +279,7 @@ Both versions use a 3-step blocking sequence. Checked against TikTok web on Sept
 
 A plain element click does not open that menu. TikTok draws it from the button's React handler, and the extension reaches that handler through `page-world.js`. The script waits until the live Actions button is hydrated, which matters on large profiles that replace the first button they paint.
 
-If TikTok changes those controls, open **Page selectors** in the extension popup or the userscript card, pick the new element, and save. Empty fields keep the built-in selectors. Profile links are always opened as `https://www.tiktok.com/@username`, including lists that omit the `@`.
+If TikTok changes those controls, open **Page selectors** in the extension popup or the userscript card. **Blocking a profile** is the Actions, Block, and Confirm controls. **Blocked accounts page** is the username element on `tiktok.com/setting/block-list` (`h3[data-e2e="block-user-username"]`). Pick the new element and save. Empty fields keep the built-in selectors. Profile links are always opened as `https://www.tiktok.com/@username`, including lists that omit the `@`.
 
 ### Private Account Detection
 
@@ -326,7 +341,7 @@ Both versions handle various TikTok URL formats:
 
 **Script not appearing on TikTok pages:**
 
-1. Re-copy `tampermonkey/script.js` into Tampermonkey and save it. The script has to run outside the page (`@inject-into content`) or TikTok's content security policy blocks it and nothing appears.
+1. Re-copy `tampermonkey/script.js` into Tampermonkey and save it. `@grant unsafeWindow` runs the script in Tampermonkey's sandbox, so TikTok's page content security policy does not block it. `@grant none` injects into the page and the script never appears.
 2. Check if Tampermonkey is installed and enabled
 3. Verify the script is enabled in Tampermonkey dashboard
 4. Check browser console for error messages
@@ -366,6 +381,13 @@ If you're still having issues:
 4. Open an issue on the GitHub repository with detailed information
 
 ## 📈 Version History
+
+### v0.7.0
+
+- **Add my blocked accounts** appends the usernames on `tiktok.com/setting/block-list` to the saved list. It does not replace names you added yourself and it does not start blocking.
+- Those usernames are read from the heading text (`h3[data-e2e="block-user-username"]`). Page selectors split **Blocking a profile** from **Blocked accounts page**.
+- `@name` and `name` count as the same person.
+- The userscript no longer uses `@inject-into`. `@grant unsafeWindow` keeps it in Tampermonkey's sandbox so TikTok's page content security policy does not block it.
 
 ### v0.6.1
 
