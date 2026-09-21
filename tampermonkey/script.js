@@ -611,6 +611,111 @@
         if (props && props.onClick) props.onClick(Object.assign({ type: 'click', buttons: 0 }, fake));
     }
 
+    function handleFromProfileHref(href) {
+        if (!href) return '';
+        const match = String(href).match(/\/@([^/?#]+)/);
+        if (!match) return '';
+        let name = match[1];
+        try { name = decodeURIComponent(name); } catch (error) { return ''; }
+        name = name.replace(/^@/, '').trim();
+        if (!name || /[\s/]/.test(name)) return '';
+        return name;
+    }
+
+    function blockedAccountsList() {
+        const title = document.querySelector('[data-e2e="block-title"]');
+        if (!title || !/blocked accounts/i.test(title.textContent || '')) return null;
+        const parent = title.parentElement;
+        if (!parent) return null;
+        return parent.querySelector('[class*="DivBlockList"]');
+    }
+
+    function handlesInBlockedList(list) {
+        const names = [];
+        list.querySelectorAll('a[href*="/@"]').forEach(function(link) {
+            const name = handleFromProfileHref(link.getAttribute('href'));
+            if (name) names.push(name);
+        });
+        return names;
+    }
+
+    function blockedListScroller(list) {
+        let node = list;
+        while (node && node !== document.documentElement) {
+            const overflow = window.getComputedStyle(node).overflowY;
+            if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight + 8) {
+                return node;
+            }
+            node = node.parentElement;
+        }
+        return document.scrollingElement || document.documentElement;
+    }
+
+    function clickBlockedListLoadMore(list) {
+        const buttons = list.querySelectorAll('button');
+        for (let i = 0; i < buttons.length; i++) {
+            const text = (buttons[i].innerText || '').trim().toLowerCase();
+            if (text === 'load more' || text === 'see more') {
+                buttons[i].click();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    async function collectBlockedHandles() {
+        const started = Date.now();
+        const seen = new Set();
+        let stable = 0;
+        for (let pass = 0; pass < 600 && stable < 3; pass++) {
+            const list = blockedAccountsList();
+            if (!list) return { ok: false, reason: 'not-page' };
+            const before = seen.size;
+            handlesInBlockedList(list).forEach(function(name) { seen.add(name); });
+            if (seen.size === before) stable += 1;
+            else stable = 0;
+            if (seen.size === 0 && Date.now() - started < 4000) stable = 0;
+            clickBlockedListLoadMore(list);
+            const last = list.lastElementChild;
+            if (last && last.scrollIntoView) last.scrollIntoView({ block: 'end' });
+            const scroller = blockedListScroller(list);
+            scroller.scrollTop = scroller.scrollHeight;
+            window.scrollTo(0, document.body.scrollHeight);
+            if (seen.size !== before) updateStatus('Reading blocked accounts… ' + seen.size, 'info');
+            await new Promise(function(resolve) { setTimeout(resolve, 700); });
+        }
+        return { ok: true, usernames: Array.from(seen) };
+    }
+
+    async function importBlockedAccountsFromPage() {
+        if (!window.location.pathname.includes('/setting/block-list')) {
+            window.location.href = 'https://www.tiktok.com/setting/block-list';
+            return;
+        }
+        updateStatus('Reading blocked accounts…', 'info');
+        const result = await collectBlockedHandles();
+        if (!result.ok) {
+            updateStatus('Open the Blocked accounts page, then try again.', 'warning');
+            return;
+        }
+        const existing = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
+        let added = 0;
+        result.usernames.forEach(function(name) {
+            if (existing.indexOf(name) === -1) {
+                existing.push(name);
+                added += 1;
+            }
+        });
+        pageStorage.setItem(blockListKey, JSON.stringify(existing));
+        if (result.usernames.length === 0) {
+            updateStatus('No blocked accounts on this page.', 'warning');
+        } else if (added === 0) {
+            updateStatus('All ' + result.usernames.length + ' blocked accounts are already in your list.', 'info');
+        } else {
+            updateStatus('Imported ' + added + ' new usernames. Download the list to save a file.', 'success');
+        }
+    }
+
     // Initialize the user interface.
     function init() {
         console.log('🎯 init() function called');
@@ -637,6 +742,9 @@
             
             addButton(card, 'Download Block List', downloadBlockList);
             console.log('✅ Download button added');
+
+            addButton(card, 'Import blocked accounts', importBlockedAccountsFromPage);
+            console.log('✅ Import button added');
             
             createFileInput(card);
             console.log('✅ File input created');

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('downloadBlockList').addEventListener('click', downloadBlockList);
     document.getElementById('fileInput').addEventListener('change', handleFileUpload);
     document.getElementById('helpBlockList').addEventListener('click', showBlockListHelp);
+    document.getElementById('importBlockedAccounts').addEventListener('click', importBlockedAccounts);
     document.getElementById('saveSelectors').addEventListener('click', saveSelectors);
     document.getElementById('testSelectors').addEventListener('click', testSelectors);
     document.getElementById('resetSelectors').addEventListener('click', resetSelectors);
@@ -313,6 +314,51 @@ function showBlockListHelp() {
     const url = 'https://github.com/jimididit/tiktok-autoblocker#-getting-your-existing-blocked-list-from-tiktok';
     chrome.tabs.create({ url: url });
     updateStatus('Opened guide in new tab.', 'info');
+}
+
+const BLOCKED_ACCOUNTS_URL = 'https://www.tiktok.com/setting/block-list';
+
+function importBlockedAccounts() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const currentTab = tabs[0];
+        if (!currentTab || !currentTab.id) {
+            updateStatus('Open a browser tab first.', 'warning');
+            return;
+        }
+        const onTikTok = currentTab.url && currentTab.url.includes('tiktok.com');
+        const onBlockList = currentTab.url && currentTab.url.includes('/setting/block-list');
+        if (!onTikTok) {
+            chrome.tabs.create({ url: BLOCKED_ACCOUNTS_URL });
+            updateStatus('Opened the Blocked accounts page. Click Import again after it loads.', 'info');
+            return;
+        }
+        if (!onBlockList) {
+            chrome.tabs.update(currentTab.id, { url: BLOCKED_ACCOUNTS_URL });
+            updateStatus('Opened the Blocked accounts page. Click Import again after it loads.', 'info');
+            return;
+        }
+        updateStatus('Reading blocked accounts…', 'info');
+        withContentScript(currentTab.id, function() {
+            chrome.tabs.sendMessage(currentTab.id, { action: 'importBlockedAccounts' }, function(response) {
+                if (chrome.runtime.lastError) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
+                if (!response || !response.success) {
+                    updateStatus('Open the Blocked accounts page, then try again.', 'warning');
+                    return;
+                }
+                loadBlockListStats();
+                if (response.found === 0) {
+                    updateStatus('No blocked accounts on this page.', 'warning');
+                } else if (response.added === 0) {
+                    updateStatus('All ' + response.found + ' blocked accounts are already in your list.', 'info');
+                } else {
+                    updateStatus('Imported ' + response.added + ' new usernames (' + response.total + ' in your list). Use Download Block List to save a file.', 'success');
+                }
+            });
+        });
+    });
 }
 
 

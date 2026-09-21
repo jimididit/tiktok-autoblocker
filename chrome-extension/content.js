@@ -1112,6 +1112,107 @@ function resetBlockingStats() {
     console.log('🔄 Reset blocking statistics');
 }
 
+function handleFromProfileHref(href) {
+    if (!href) return '';
+    const match = String(href).match(/\/@([^/?#]+)/);
+    if (!match) return '';
+    let name = match[1];
+    try { name = decodeURIComponent(name); } catch (error) { return ''; }
+    name = name.replace(/^@/, '').trim();
+    if (!name || /[\s/]/.test(name)) return '';
+    return name;
+}
+
+function blockedAccountsList() {
+    const title = document.querySelector('[data-e2e="block-title"]');
+    if (!title || !/blocked accounts/i.test(title.textContent || '')) return null;
+    const parent = title.parentElement;
+    if (!parent) return null;
+    return parent.querySelector('[class*="DivBlockList"]');
+}
+
+function handlesInBlockedList(list) {
+    const names = [];
+    list.querySelectorAll('a[href*="/@"]').forEach(function(link) {
+        const name = handleFromProfileHref(link.getAttribute('href'));
+        if (name) names.push(name);
+    });
+    return names;
+}
+
+function blockedListScroller(list) {
+    let node = list;
+    while (node && node !== document.documentElement) {
+        const overflow = window.getComputedStyle(node).overflowY;
+        if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight + 8) {
+            return node;
+        }
+        node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
+function clickBlockedListLoadMore(list) {
+    const buttons = list.querySelectorAll('button');
+    for (let i = 0; i < buttons.length; i++) {
+        const text = (buttons[i].innerText || '').trim().toLowerCase();
+        if (text === 'load more' || text === 'see more') {
+            buttons[i].click();
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Read usernames from the Blocked accounts settings page.
+ * Only links inside the list count. Scrolling lets TikTok render the next rows.
+ */
+async function collectBlockedHandles() {
+    const started = Date.now();
+    const seen = new Set();
+    let stable = 0;
+    for (let pass = 0; pass < 600 && stable < 3; pass++) {
+        const list = blockedAccountsList();
+        if (!list) return { ok: false, reason: 'not-page' };
+        const before = seen.size;
+        handlesInBlockedList(list).forEach(function(name) { seen.add(name); });
+        if (seen.size === before) stable += 1;
+        else stable = 0;
+        if (seen.size === 0 && Date.now() - started < 4000) stable = 0;
+        clickBlockedListLoadMore(list);
+        const last = list.lastElementChild;
+        if (last && last.scrollIntoView) last.scrollIntoView({ block: 'end' });
+        const scroller = blockedListScroller(list);
+        scroller.scrollTop = scroller.scrollHeight;
+        window.scrollTo(0, document.body.scrollHeight);
+        if (seen.size !== before) updateStatus('Reading blocked accounts… ' + seen.size, 'info');
+        await new Promise(function(resolve) { setTimeout(resolve, 700); });
+    }
+    return { ok: true, usernames: Array.from(seen) };
+}
+
+function mergeUsernamesIntoBlockList(usernames, done) {
+    chrome.storage.local.get([blockListKey], function(stored) {
+        const existing = stored[blockListKey] || [];
+        const merged = existing.slice();
+        let added = 0;
+        usernames.forEach(function(name) {
+            const clean = String(name || '').replace(/^@/, '').trim();
+            if (!clean || merged.indexOf(clean) !== -1) return;
+            merged.push(clean);
+            added += 1;
+        });
+        chrome.storage.local.set({ [blockListKey]: merged }, function() {
+            done({
+                found: usernames.length,
+                added: added,
+                total: merged.length
+            });
+        });
+    });
+}
+
 /**
  * Check if the current user is already blocked
  * @returns {Promise<boolean>} True if the user is already blocked
@@ -1256,6 +1357,17 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             sendResponse({success: true});
         });
         return true; // Keep message channel open for async response
+    } else if (request.action === 'importBlockedAccounts') {
+        collectBlockedHandles().then(function(result) {
+            if (!result.ok) {
+                sendResponse({ success: false, reason: result.reason });
+                return;
+            }
+            mergeUsernamesIntoBlockList(result.usernames, function(summary) {
+                sendResponse({ success: true, found: summary.found, added: summary.added, total: summary.total });
+            });
+        });
+        return true;
     }
 });
 

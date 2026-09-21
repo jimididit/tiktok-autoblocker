@@ -142,14 +142,15 @@ TikTok’s **full data archive** can include a **Block List** (date + username).
 
 *Note: If your export doesn’t include a block list, request the full archive; the Block List is part of the full archive in TikTok’s data portability.*
 
-### Option 2: Manual export from TikTok (if available on web)
+### Option 2: Import from the Blocked accounts page
 
-On **TikTok web**, if you have a **Blocked accounts** or **Privacy** settings page that lists usernames:
+While logged in on TikTok web:
 
-1. Open that page in Chrome while the extension is installed.
-2. If the extension detects a “blocked list” page, use **“Import from this page”** in the popup (if available) to extract usernames into the extension’s block list.
+1. Open [tiktok.com/setting/block-list](https://www.tiktok.com/setting/block-list).
+2. Click the extension icon, then **Import blocked accounts**. The userscript card has the same button.
+3. Click **Download Block List** to save the usernames as a `.txt` file.
 
-If TikTok’s web layout doesn’t expose a simple list of usernames on that page, use Option 1 instead.
+The import reads only the list on that page. It adds those usernames to the saved list and does not start blocking. Upload that file on the other account when you want to block them. If the page is empty, use Option 1.
 
 ---
 
