@@ -1,5 +1,10 @@
+# Editor and development files
 .vscode/*
 .specstory/*
 .cursorignore
 .cursorindexingignore
 .cursor/
+*.zip
+
+# Chrome Web Store publishing images for listing
+listing-images/

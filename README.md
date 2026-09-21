@@ -1,5 +1,9 @@
 # TikTok AutoBlocker
 
+<p>
+  <img src="assets/extension-screenshot.png" width="100%" alt="Extension screenshot">
+</p>
+
 A powerful tool for mass blocking TikTok users with support for both Chrome extensions and Tampermonkey scripts. Features enhanced private account detection, real-time status updates, and robust error handling. **Now Available on Chrome Web Store!!**
 
 ## 🚀 Features
