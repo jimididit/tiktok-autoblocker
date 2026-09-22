@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.7.0
+// @version      0.7.1
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        https://www.tiktok.com/*
@@ -62,6 +62,46 @@
 
     function profileUrl(username) {
         return 'https://www.tiktok.com/@' + profileHandle(username);
+    }
+
+    /** Known TikTok path segments that are NOT profile pages */
+    const TIKTOK_NON_PROFILE_PATHS = new Set([
+        '', 'explore', 'following', 'foryou', 'fyp', 'friends', 'friend',
+        'login', 'signup', 'sign-up', 'settings', 'setting', 'discover',
+        'search', 'live', 'music', 'tag', 'place', 'sound', 'effect', 'hashtag',
+        'notifications', 'notification', 'inbox', 'messages', 'message',
+        'upload', 'studio', 'creator', 'creators', 'analytics',
+        'trending', 'recommended', 'rewards', 'coin', 'balance', 'wallet', 'shop', 'business',
+        'legal', 'policy', 'about', 'feedback', 'help', 'support', 'privacy',
+        'safety', 'accessibility', 'transparency', 'forgood', 'community-guidelines',
+        'embed', 'share', 't', 'video', 'photo', 'collection', 'sticker',
+        'amp', 'auth', 'inapp', 'link', 'jump', 'en',
+        '404', '500', 'error', 'null', 'undefined', 'n/a'
+    ]);
+
+    function isTikTokProfilePage() {
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        const segment = path.split('/')[0] || '';
+        const normalized = segment.replace(/^@/, '').toLowerCase();
+        if (!normalized) return false;
+        if (TIKTOK_NON_PROFILE_PATHS.has(normalized) || TIKTOK_NON_PROFILE_PATHS.has(segment.toLowerCase())) {
+            return false;
+        }
+        if (!/^[a-z0-9._]{2,24}$/i.test(normalized)) {
+            return false;
+        }
+        return true;
+    }
+
+    function currentProfileUsername() {
+        if (!isTikTokProfilePage()) return '';
+        let segment = '';
+        try {
+            segment = decodeURIComponent((window.location.pathname.split('/')[1] || '').trim());
+        } catch (error) {
+            segment = (window.location.pathname.split('/')[1] || '').trim();
+        }
+        return segment;
     }
 
     function isOnProfile(username) {
@@ -741,242 +781,515 @@
         }
     }
 
-    // Initialize the user interface.
-    function init() {
-        console.log('🎯 init() function called');
-        console.log('🎯 Document ready state:', document.readyState);
-        console.log('🎯 Document body exists:', !!document.body);
-        console.log('🎯 Document body children count:', document.body ? document.body.children.length : 'N/A');
-        console.log('🎯 Document head exists:', !!document.head);
-        console.log('🎯 Window location:', window.location.href);
-        
-        // Check if UI already exists to prevent duplicates
-        if (document.getElementById('tiktok-autoblocker-card')) {
-            console.log('🎯 UI already exists, skipping initialization');
-            return;
-        }
-        
-        console.log('🎯 Creating TikTok AutoBlocker UI...');
-        
+    let statusHideTimer = null;
+    const panelCollapsedKey = 'tiktokAutoBlockerPanelCollapsed';
+
+    function ensurePanelStyles() {
+        if (document.getElementById('tiktok-autoblocker-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'tiktok-autoblocker-styles';
+        style.textContent = `
+#tiktok-autoblocker-card {
+  --ttab-bg: #f4f6f8;
+  --ttab-surface: #ffffff;
+  --ttab-ink: #0f172a;
+  --ttab-muted: #64748b;
+  --ttab-border: #e2e8f0;
+  --ttab-border-strong: #cbd5e1;
+  --ttab-brand: #ff4757;
+  --ttab-brand-hover: #e83e4d;
+  --ttab-success: #15803d;
+  --ttab-success-bg: #f0fdf4;
+  --ttab-success-border: #bbf7d0;
+  --ttab-info: #0369a1;
+  --ttab-info-bg: #f0f9ff;
+  --ttab-info-border: #bae6fd;
+  --ttab-warning: #a16207;
+  --ttab-warning-bg: #fffbeb;
+  --ttab-warning-border: #fde68a;
+  --ttab-error: #b91c1c;
+  --ttab-error-bg: #fef2f2;
+  --ttab-error-border: #fecaca;
+  --ttab-radius: 8px;
+  position: fixed;
+  top: 96px;
+  right: 16px;
+  width: 300px;
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  z-index: 1000000;
+  box-sizing: border-box;
+  padding: 14px;
+  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ttab-ink);
+  background: linear-gradient(180deg, #fafbfc 0%, var(--ttab-bg) 100%);
+  border: 1px solid var(--ttab-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  -webkit-font-smoothing: antialiased;
+}
+#tiktok-autoblocker-card * { box-sizing: border-box; }
+#tiktok-autoblocker-card.ttab-collapsed {
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 8px 10px;
+}
+#tiktok-autoblocker-card.ttab-collapsed .ttab-body { display: none; }
+#tiktok-autoblocker-card .ttab-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ttab-border);
+}
+#tiktok-autoblocker-card.ttab-collapsed .ttab-header {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  align-items: center;
+}
+#tiktok-autoblocker-card .ttab-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ttab-ink);
+}
+#tiktok-autoblocker-card .ttab-subtitle {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--ttab-muted);
+}
+#tiktok-autoblocker-card .ttab-icon-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ttab-border-strong);
+  border-radius: 6px;
+  background: var(--ttab-surface);
+  color: var(--ttab-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+#tiktok-autoblocker-card .ttab-icon-btn:hover {
+  color: var(--ttab-ink);
+  background: #f8fafc;
+}
+#tiktok-autoblocker-card .ttab-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.28);
+}
+#tiktok-autoblocker-card .ttab-section { margin-bottom: 10px; }
+#tiktok-autoblocker-card .ttab-label {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ttab-muted);
+}
+#tiktok-autoblocker-card .ttab-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#tiktok-autoblocker-card .ttab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ttab-radius);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+#tiktok-autoblocker-card .ttab-btn:focus-visible,
+#tiktok-autoblocker-card .ttab-file:focus-within,
+#tiktok-autoblocker-card summary:focus-visible,
+#tiktok-autoblocker-card input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.28);
+}
+#tiktok-autoblocker-card .ttab-btn-primary {
+  background: var(--ttab-brand);
+  border-color: var(--ttab-brand);
+  color: #fff;
+}
+#tiktok-autoblocker-card .ttab-btn-primary:hover { background: var(--ttab-brand-hover); border-color: var(--ttab-brand-hover); }
+#tiktok-autoblocker-card .ttab-btn-secondary,
+#tiktok-autoblocker-card .ttab-file-label {
+  background: var(--ttab-surface);
+  border-color: var(--ttab-border-strong);
+  color: var(--ttab-ink);
+  font-weight: 550;
+}
+#tiktok-autoblocker-card .ttab-btn-secondary:hover,
+#tiktok-autoblocker-card .ttab-file-label:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+#tiktok-autoblocker-card .ttab-file { display: block; }
+#tiktok-autoblocker-card .ttab-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+#tiktok-autoblocker-card .ttab-file-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--ttab-border-strong);
+  border-radius: var(--ttab-radius);
+  cursor: pointer;
+}
+#tiktok-autoblocker-card #block-status {
+  display: none;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  text-align: left;
+}
+#tiktok-autoblocker-card #block-status.ttab-success {
+  display: block;
+  background: var(--ttab-success-bg);
+  border-color: var(--ttab-success-border);
+  color: var(--ttab-success);
+}
+#tiktok-autoblocker-card #block-status.ttab-error {
+  display: block;
+  background: var(--ttab-error-bg);
+  border-color: var(--ttab-error-border);
+  color: var(--ttab-error);
+}
+#tiktok-autoblocker-card #block-status.ttab-warning {
+  display: block;
+  background: var(--ttab-warning-bg);
+  border-color: var(--ttab-warning-border);
+  color: var(--ttab-warning);
+}
+#tiktok-autoblocker-card #block-status.ttab-info {
+  display: block;
+  background: var(--ttab-info-bg);
+  border-color: var(--ttab-info-border);
+  color: var(--ttab-info);
+}
+#tiktok-autoblocker-card .ttab-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  background: var(--ttab-surface);
+  border: 1px solid var(--ttab-border);
+  border-radius: var(--ttab-radius);
+  font-size: 12px;
+}
+#tiktok-autoblocker-card .ttab-stats span:first-child { color: var(--ttab-muted); font-weight: 550; }
+#tiktok-autoblocker-card .ttab-stats strong { font-weight: 650; font-variant-numeric: tabular-nums; }
+#tiktok-autoblocker-card .ttab-selectors {
+  margin: 0 0 10px;
+  background: var(--ttab-surface);
+  border: 1px solid var(--ttab-border);
+  border-radius: var(--ttab-radius);
+  overflow: hidden;
+}
+#tiktok-autoblocker-card .ttab-selectors summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 9px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ttab-ink);
+  user-select: none;
+}
+#tiktok-autoblocker-card .ttab-selectors summary::-webkit-details-marker { display: none; }
+#tiktok-autoblocker-card .ttab-selectors[open] summary {
+  border-bottom: 1px solid var(--ttab-border);
+  background: #f8fafc;
+}
+#tiktok-autoblocker-card .ttab-selectors-body { padding: 10px; }
+#tiktok-autoblocker-card .ttab-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--ttab-muted);
+  line-height: 1.4;
+}
+#tiktok-autoblocker-card .ttab-group {
+  margin: 10px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ttab-muted);
+}
+#tiktok-autoblocker-card .ttab-selectors label {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 550;
+}
+#tiktok-autoblocker-card .ttab-selectors input[type="text"] {
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 8px;
+  border: 1px solid var(--ttab-border-strong);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ttab-ink);
+  font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+#tiktok-autoblocker-card .ttab-footer {
+  padding-top: 10px;
+  border-top: 1px solid var(--ttab-border);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ttab-muted);
+}
+#tiktok-autoblocker-card .ttab-footer strong { color: #475569; font-weight: 650; }
+@media (prefers-reduced-motion: reduce) {
+  #tiktok-autoblocker-card .ttab-btn { transition: none; }
+}
+`;
+        document.documentElement.appendChild(style);
+    }
+
+    function refreshPanelStats() {
+        const countEl = document.getElementById('ttab-block-count');
+        if (!countEl) return;
         try {
-            const card = createCard('Block List Manager');
-            console.log('✅ Card created successfully:', card);
-            
-            addButton(card, 'Add User to Block List', addUserToBlockList);
-            console.log('✅ Add button added');
-            
-            addButton(card, 'Download Block List', downloadBlockList);
-            console.log('✅ Download button added');
-
-            addButton(card, 'Add my blocked accounts', importBlockedAccountsFromPage);
-            console.log('✅ Import button added');
-            
-            createFileInput(card);
-            console.log('✅ File input created');
-            
-            createStatusIndicator(card);
-            console.log('✅ Status indicator created');
-
-            addSelectorSettings(card);
-            console.log('✅ Selector settings created');
-            
-            console.log('✅ TikTok AutoBlocker UI created successfully!');
-            console.log('✅ Card element in DOM:', document.getElementById('tiktok-autoblocker-card'));
-            console.log('✅ Card visible:', document.getElementById('tiktok-autoblocker-card') ? 'YES' : 'NO');
-            
-            // Force a repaint to ensure visibility
-            if (document.getElementById('tiktok-autoblocker-card')) {
-                document.getElementById('tiktok-autoblocker-card').style.display = 'none';
-                document.getElementById('tiktok-autoblocker-card').offsetHeight; // Force reflow
-                document.getElementById('tiktok-autoblocker-card').style.display = 'block';
-                console.log('✅ Forced repaint of card element');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error creating UI:', error);
-            console.error('❌ Error stack:', error.stack);
+            const list = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
+            countEl.textContent = String(list.length);
+        } catch (e) {
+            countEl.textContent = '—';
         }
     }
 
-    // Add buttons to the UI for user interactions like adding to the block list and downloading it.
-    function addButtonFunctionality(card) {
-        addButton(card, 'Add to Block List', addUserToBlockList);
-        addButton(card, 'Download Block List', downloadBlockList);
+    function init() {
+        if (document.getElementById('tiktok-autoblocker-card')) return;
+
+        try {
+            ensurePanelStyles();
+            const card = createCard();
+            const body = card.querySelector('.ttab-body');
+
+            const primarySection = document.createElement('div');
+            primarySection.className = 'ttab-section';
+            primarySection.appendChild(makeButton('Add current user', addUserToBlockList, 'primary'));
+            body.appendChild(primarySection);
+
+            const listSection = document.createElement('div');
+            listSection.className = 'ttab-section';
+            const listLabel = document.createElement('p');
+            listLabel.className = 'ttab-label';
+            listLabel.textContent = 'Block list';
+            listSection.appendChild(listLabel);
+
+            const stack = document.createElement('div');
+            stack.className = 'ttab-stack';
+            stack.appendChild(makeButton('Download list', downloadBlockList, 'secondary'));
+            stack.appendChild(createFileInput());
+            stack.appendChild(makeButton('Add my blocked accounts', importBlockedAccountsFromPage, 'secondary'));
+            listSection.appendChild(stack);
+            body.appendChild(listSection);
+
+            body.appendChild(createStatusIndicator());
+            body.appendChild(createStatsRow());
+            addSelectorSettings(body, card);
+
+            const footer = document.createElement('div');
+            footer.className = 'ttab-footer';
+            footer.innerHTML = '<strong>v0.7.1</strong><span>.txt upload</span>';
+            body.appendChild(footer);
+
+            refreshPanelStats();
+        } catch (error) {
+            console.error('Error creating AutoBlocker UI:', error);
+        }
     }
 
-    // Create a file input for handling block list uploads.
-    function createFileInput(card) {
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.style.width = '100%';
-        fileInput.style.marginTop = '10px';
-        fileInput.onchange = handleFileUpload;
-        card.appendChild(fileInput);
+    function makeButton(text, onClick, variant) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = text;
+        button.className = 'ttab-btn ttab-btn-' + (variant || 'secondary');
+        button.addEventListener('click', onClick);
+        return button;
     }
 
-    // Create a status indicator for showing blocking progress
-    function createStatusIndicator(card) {
+    function createFileInput() {
+        const wrap = document.createElement('label');
+        wrap.className = 'ttab-file';
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.txt,text/plain';
+        input.addEventListener('change', handleFileUpload);
+        const label = document.createElement('span');
+        label.className = 'ttab-file-label';
+        label.textContent = 'Upload list';
+        wrap.appendChild(input);
+        wrap.appendChild(label);
+        return wrap;
+    }
+
+    function createStatusIndicator() {
         const statusDiv = document.createElement('div');
         statusDiv.id = 'block-status';
-        statusDiv.style.marginTop = '10px';
-        statusDiv.style.padding = '8px';
-        statusDiv.style.backgroundColor = '#f0f0f0';
-        statusDiv.style.borderRadius = '4px';
-        statusDiv.style.fontSize = '12px';
-        statusDiv.style.textAlign = 'center';
-        statusDiv.style.display = 'none';
-        statusDiv.textContent = 'Ready';
-        card.appendChild(statusDiv);
+        statusDiv.setAttribute('role', 'status');
+        return statusDiv;
     }
 
-    // Update the status indicator
-    function updateStatus(message, type = 'info') {
+    function createStatsRow() {
+        const stats = document.createElement('div');
+        stats.className = 'ttab-stats';
+        stats.innerHTML = '<span>Saved accounts</span><strong id="ttab-block-count">0</strong>';
+        return stats;
+    }
+
+    function updateStatus(message, type) {
+        type = type || 'info';
         const statusDiv = document.getElementById('block-status');
-        if (statusDiv) {
-            statusDiv.style.display = 'block';
-            statusDiv.textContent = message;
-            
-            // Set color based on type
-            switch(type) {
-                case 'success':
-                    statusDiv.style.backgroundColor = '#d4edda';
-                    statusDiv.style.color = '#155724';
-                    break;
-                case 'error':
-                    statusDiv.style.backgroundColor = '#f8d7da';
-                    statusDiv.style.color = '#721c24';
-                    break;
-                case 'warning':
-                    statusDiv.style.backgroundColor = '#fff3cd';
-                    statusDiv.style.color = '#856404';
-                    break;
-                default:
-                    statusDiv.style.backgroundColor = '#d1ecf1';
-                    statusDiv.style.color = '#0c5460';
-            }
+        if (!statusDiv) return;
+
+        if (statusHideTimer) {
+            clearTimeout(statusHideTimer);
+            statusHideTimer = null;
         }
+
+        statusDiv.textContent = message;
+        statusDiv.className = 'ttab-' + type;
+        statusDiv.style.display = 'block';
+        statusDiv.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status');
+
+        if (type === 'success') {
+            statusHideTimer = setTimeout(function() {
+                statusDiv.style.display = 'none';
+            }, 4000);
+        } else if (type === 'info') {
+            statusHideTimer = setTimeout(function() {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        refreshPanelStats();
     }
 
-    // Handle the upload of a file and process the included usernames.
     async function handleFileUpload(event) {
         const file = event.target.files[0];
+        if (!file) return;
         const text = await file.text();
         const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(username => ({username: username.trim(), action: 'block'}));
         pageStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
-        updateStatus(`Loaded ${usernames.length} usernames for blocking`, 'info');
-        console.log('🚀 Starting blocking process...');
+        updateStatus('Loaded ' + usernames.length + ' usernames for blocking', 'info');
         handleNextUser();
     }
 
-    // Create the main UI card that hosts all UI elements.
-    function createCard(cardTitle) {
-        console.log('🎯 createCard() called with title:', cardTitle);
-        
+    function createCard() {
         const card = document.createElement('div');
         card.id = 'tiktok-autoblocker-card';
-        card.style.position = 'fixed';
-        card.style.top = '150px';
-        card.style.right = '20px';
-        card.style.width = '250px';
-        card.style.backgroundColor = '#fff';
-        card.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-        card.style.padding = '10px';
-        card.style.borderRadius = '8px';
-        card.style.zIndex = '1000000';
+        card.setAttribute('role', 'region');
+        card.setAttribute('aria-label', 'TikTok AutoBlocker');
 
-        const title = document.createElement('div');
-        title.innerHTML = `<h3>${cardTitle}</h3>`;
-        title.style.textAlign = 'center';
-        title.style.marginBottom = '10px';
-        title.style.color = '#333333';
-        card.appendChild(title);
+        const header = document.createElement('div');
+        header.className = 'ttab-header';
 
-        console.log('🎯 About to append card to document.body');
-        console.log('🎯 Document body exists:', !!document.body);
-        console.log('🎯 Card element created:', card);
-        
+        const copy = document.createElement('div');
+        const title = document.createElement('h2');
+        title.className = 'ttab-title';
+        title.textContent = 'TikTok AutoBlocker';
+        const subtitle = document.createElement('p');
+        subtitle.className = 'ttab-subtitle';
+        subtitle.textContent = 'Block users and manage lists';
+        copy.appendChild(title);
+        copy.appendChild(subtitle);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'ttab-icon-btn';
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Collapse panel');
+        toggle.textContent = '–';
+        toggle.addEventListener('click', function() {
+            const collapsed = card.classList.toggle('ttab-collapsed');
+            toggle.textContent = collapsed ? '+' : '–';
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            toggle.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
+            try {
+                pageStorage.setItem(panelCollapsedKey, collapsed ? '1' : '0');
+            } catch (e) {}
+        });
+
+        header.appendChild(copy);
+        header.appendChild(toggle);
+        card.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'ttab-body';
+        card.appendChild(body);
+
         document.body.appendChild(card);
-        console.log('✅ Card appended to document.body successfully');
-        console.log('✅ Card now in DOM:', document.getElementById('tiktok-autoblocker-card'));
-        
+
+        try {
+            if (pageStorage.getItem(panelCollapsedKey) === '1') {
+                card.classList.add('ttab-collapsed');
+                toggle.textContent = '+';
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.setAttribute('aria-label', 'Expand panel');
+            }
+        } catch (e) {}
+
         return card;
     }
-    
-    // Add a button to the card with defined actions.
-    function addButton(card, text, onClick) {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.style.backgroundColor = 'rgb(254, 44, 85)';
-        button.style.color = 'white';
-        button.style.border = 'none';
-        button.style.padding = '10px';
-        button.style.marginTop = '5px';
-        button.style.width = '100%';
-        button.style.borderRadius = '5px';
-        button.style.cursor = 'pointer';
-        button.onclick = onClick;
-        card.appendChild(button);
-    }
 
-     // Initiate the download of the block list.
-    function createFilenameInput(card) {
-        // Divider
-        const divider = document.createElement('hr');
-        divider.style.marginTop = '10px';
-        divider.style.marginBottom = '10px';
-        card.appendChild(divider);
-
-        const filenameLabel = document.createElement('label');
-        filenameLabel.textContent = 'Blocklist file:';
-        filenameLabel.style.display = 'block';
-        filenameLabel.style.marginBottom = '5px';
-        filenameLabel.style.marginTop = '5px';
-        filenameLabel.style.color = '#333';
-        card.appendChild(filenameLabel);
-    }
-
-    function addSelectorSettings(card) {
+    function addSelectorSettings(body, card) {
         const saved = readCustomSelectors();
         const details = document.createElement('details');
-        details.style.marginTop = '10px';
-        details.style.color = '#333';
+        details.className = 'ttab-selectors';
 
         const summary = document.createElement('summary');
-        summary.textContent = 'Page selectors';
-        summary.style.cursor = 'pointer';
+        summary.textContent = 'Advanced · Page selectors';
         details.appendChild(summary);
 
+        const panel = document.createElement('div');
+        panel.className = 'ttab-selectors-body';
+
         const hint = document.createElement('p');
-        hint.textContent = 'Leave a field empty to use the built-in selector. Pick, then click the control on the page.';
-        hint.style.fontSize = '12px';
-        hint.style.margin = '8px 0';
-        details.appendChild(hint);
+        hint.className = 'ttab-hint';
+        hint.textContent = 'Leave empty for built-in selectors. Pick, then click the control on the page.';
+        panel.appendChild(hint);
 
         function group(text) {
             const heading = document.createElement('p');
+            heading.className = 'ttab-group';
             heading.textContent = text;
-            heading.style.fontWeight = '700';
-            heading.style.fontSize = '12px';
-            heading.style.margin = '12px 0 0';
-            details.appendChild(heading);
+            panel.appendChild(heading);
         }
 
         function field(labelText, key, placeholder) {
             const label = document.createElement('label');
-            label.textContent = labelText;
-            label.style.display = 'block';
-            label.style.fontSize = '12px';
-            label.style.marginTop = '6px';
+            label.appendChild(document.createTextNode(labelText));
             const input = document.createElement('input');
             input.type = 'text';
             input.value = saved[key] || '';
             input.placeholder = placeholder;
-            input.style.width = '100%';
-            input.style.boxSizing = 'border-box';
-            input.style.marginTop = '3px';
+            input.spellcheck = false;
             input.dataset.selectorKey = key;
             label.appendChild(input);
-            details.appendChild(label);
+            panel.appendChild(label);
             return input;
         }
 
@@ -996,16 +1309,6 @@
                 blockedAccount: blockedAccountInput.value.trim()
             };
         }
-
-        const saveButton = document.createElement('button');
-        saveButton.textContent = 'Save selectors';
-        saveButton.style.marginTop = '8px';
-        saveButton.style.width = '100%';
-        saveButton.onclick = function() {
-            saveCustomSelectors(currentValues());
-            updateStatus('Selectors saved', 'success');
-        };
-        details.appendChild(saveButton);
 
         let picker = null;
         function stopPicker() {
@@ -1028,55 +1331,49 @@
                     return;
                 }
                 inputs[key].value = selector;
-                const next = currentValues();
-                saveCustomSelectors(next);
+                saveCustomSelectors(currentValues());
                 updateStatus('Saved ' + labelText + ' selector', 'success');
             };
             document.addEventListener('click', picker, true);
         }
 
-        const pickMore = document.createElement('button');
-        pickMore.textContent = 'Pick Actions button';
-        pickMore.style.marginTop = '5px';
-        pickMore.style.width = '100%';
-        pickMore.onclick = function() { pick('more', 'Actions button'); };
-        details.appendChild(pickMore);
+        // Re-order: field rows already appended; insert pick buttons after each input's label
+        moreInput.parentNode.insertAdjacentElement('afterend', makeButton('Pick', function() { pick('more', 'Actions button'); }, 'secondary'));
+        blockInput.parentNode.insertAdjacentElement('afterend', makeButton('Pick', function() { pick('block', 'Block item'); }, 'secondary'));
+        confirmInput.parentNode.insertAdjacentElement('afterend', makeButton('Pick', function() { pick('confirm', 'confirm button'); }, 'secondary'));
+        blockedAccountInput.parentNode.insertAdjacentElement('afterend', makeButton('Pick', function() { pick('blockedAccount', 'blocked-account username'); }, 'secondary'));
 
-        const pickBlock = document.createElement('button');
-        pickBlock.textContent = 'Pick Block item';
-        pickBlock.style.marginTop = '5px';
-        pickBlock.style.width = '100%';
-        pickBlock.onclick = function() { pick('block', 'Block item'); };
-        details.appendChild(pickBlock);
+        const saveStack = document.createElement('div');
+        saveStack.className = 'ttab-stack';
+        saveStack.style.marginTop = '10px';
+        saveStack.appendChild(makeButton('Save selectors', function() {
+            saveCustomSelectors(currentValues());
+            updateStatus('Selectors saved', 'success');
+        }, 'primary'));
+        panel.appendChild(saveStack);
 
-        const pickConfirm = document.createElement('button');
-        pickConfirm.textContent = 'Pick confirm button';
-        pickConfirm.style.marginTop = '5px';
-        pickConfirm.style.width = '100%';
-        pickConfirm.onclick = function() { pick('confirm', 'confirm button'); };
-        details.appendChild(pickConfirm);
-
-        const pickBlockedAccount = document.createElement('button');
-        pickBlockedAccount.textContent = 'Pick username';
-        pickBlockedAccount.style.marginTop = '5px';
-        pickBlockedAccount.style.width = '100%';
-        pickBlockedAccount.onclick = function() { pick('blockedAccount', 'blocked-account username'); };
-        details.appendChild(pickBlockedAccount);
-
-        card.appendChild(details);
+        details.appendChild(panel);
+        body.appendChild(details);
     }
 
     // Add current profile username to blocklist
     function addUserToBlockList() {
-        const username = window.location.pathname.split('/')[1];
+        const username = currentProfileUsername();
+        if (!username) {
+            updateStatus('Open a TikTok profile page first (for example /@username).', 'warning');
+            return;
+        }
         const blockList = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
-        if (!blockList.includes(username)) {
+        const norm = function(u) { return String(u || '').replace(/^@/, '').toLowerCase(); };
+        const already = blockList.some(function(u) { return norm(u) === norm(username); });
+        if (!already) {
             blockList.push(username);
             pageStorage.setItem(blockListKey, JSON.stringify(blockList));
-            console.info(`Added ${username} to block list.`);
+            updateStatus('Added ' + username + ' to block list.', 'success');
         } else {
-            console.info(`${username} is already in the block list.`);
+            updateStatus(username + ' is already in the block list.', 'info');
         }
+        refreshPanelStats();
     }
 
     // Add a specific username to blocklist (for use in automation)
@@ -1096,7 +1393,6 @@
     // Download blocklist as TXT file
     function downloadBlockList() {
         const blockList = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
-        //const filename = filenameInput.value.trim();
         const blob = new Blob([blockList.join('\n')], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1106,101 +1402,33 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        updateStatus('Downloaded ' + blockList.length + ' accounts.', 'success');
     }
 
     // Call init function to initialize interface
-    // Wait for DOM to be ready and only show on TikTok profile pages
-    console.log('🎯 Script initialization starting...');
-    console.log('📍 Document ready state:', document.readyState);
-    console.log('📍 Current URL:', window.location.href);
-    console.log('📍 Is TikTok page:', window.location.href.includes('tiktok.com'));
-    console.log('📍 Has username in path:', window.location.pathname.split('/')[1]);
-    
-    // Simple test to verify script is running
-    function createTestElement() {
-        console.log('🧪 Creating test element to verify script is running...');
-        const testDiv = document.createElement('div');
-        testDiv.id = 'tiktok-autoblocker-test';
-        testDiv.style.position = 'fixed';
-        testDiv.style.top = '10px';
-        testDiv.style.left = '10px';
-        testDiv.style.backgroundColor = 'red';
-        testDiv.style.color = 'white';
-        testDiv.style.padding = '5px';
-        testDiv.style.zIndex = '9999999';
-        testDiv.style.fontSize = '12px';
-        testDiv.textContent = 'TikTok AutoBlocker Script Running!';
-        document.body.appendChild(testDiv);
-        console.log('✅ Test element created and visible');
-        
-        // Remove test element after 5 seconds
-        setTimeout(() => {
-            if (testDiv.parentNode) {
-                testDiv.parentNode.removeChild(testDiv);
-                console.log('🗑️ Test element removed');
-            }
-        }, 5000);
-    }
-    
-    // Function to initialize UI with retry logic
     function initializeUI() {
-        console.log('🎯 Attempting to initialize UI...');
-        
-        // Check if we're on a TikTok page
-        if (!window.location.href.includes('tiktok.com')) {
-            console.log('❌ Not on TikTok page, skipping UI initialization');
-            return;
-        }
-        
-        // More robust username detection
+        if (!window.location.href.includes('tiktok.com')) return;
+
         const pathParts = window.location.pathname.split('/').filter(part => part.trim() !== '');
-        console.log('📍 Path parts:', pathParts);
-        
-        // Check for different TikTok URL patterns
         let username = null;
-        
-        // Pattern 1: /@username
+
         if (pathParts.length > 0 && pathParts[0].startsWith('@')) {
-            username = pathParts[0].substring(1); // Remove @ symbol
-            console.log('✅ Found username with @ pattern:', username);
-        }
-        // Pattern 2: /username (without @)
-        else if (pathParts.length > 0 && pathParts[0] !== '' && !pathParts[0].includes('.')) {
+            username = pathParts[0].substring(1);
+        } else if (pathParts.length > 0 && pathParts[0] !== '' && !pathParts[0].includes('.')) {
             username = pathParts[0];
-            console.log('✅ Found username without @ pattern:', username);
-        }
-        // Pattern 3: /user/username
-        else if (pathParts.length > 1 && pathParts[0] === 'user') {
+        } else if (pathParts.length > 1 && pathParts[0] === 'user') {
             username = pathParts[1];
-            console.log('✅ Found username in /user/ pattern:', username);
+        } else {
+            username = 'current';
         }
-        // Pattern 4: Check if we're on any TikTok page (fallback)
-        else {
-            console.log('⚠️ No clear username pattern found, but on TikTok page');
-            console.log('📍 Full pathname:', window.location.pathname);
-            console.log('📍 Full URL:', window.location.href);
-            
-            // If we're on TikTok, show UI anyway (might be homepage or other page)
-            username = 'current'; // Dummy value to allow UI creation
-        }
-        
-        if (!username || username === '') {
-            console.log('❌ No username detected, not a profile page');
-            return;
-        }
-        
-        console.log('✅ TikTok page detected, initializing UI...');
-        
-        // Create test element first
-        createTestElement();
-        
-        // Add a small delay to ensure page is fully loaded
-        setTimeout(() => {
+
+        if (!username) return;
+
+        setTimeout(function() {
             try {
                 init();
-                console.log('✅ UI initialization completed successfully!');
             } catch (error) {
-                console.error('❌ Error during UI initialization:', error);
+                console.error('Error during UI initialization:', error);
             }
         }, 1000);
     }

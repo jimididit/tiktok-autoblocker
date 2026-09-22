@@ -139,29 +139,53 @@ function logDebug(message, type = 'log') {
 // Initialize the script by checking if there's a post-navigation task to be performed.
 checkForPostNavigationTask();
 
-/** Known TikTok path segments that are NOT profile pages (avoid redirect loops) */
+/** Known TikTok path segments that are NOT profile pages (avoid redirect loops / bad blocklist entries) */
 const TIKTOK_NON_PROFILE_PATHS = new Set([
-    '', 'explore', 'following', 'fyp', 'login', 'signup', 'settings', 'discover',
-    'search', 'live', 'music', 'notifications', 'inbox', 'upload', 'studio',
-    'trending', 'recommended', 'friend', 'rewards', 'legal', 'policy', 'about',
-    '404'  // error page – treat as non-profile so we clear session and stop refresh loop
+    '', 'explore', 'following', 'foryou', 'fyp', 'friends', 'friend',
+    'login', 'signup', 'sign-up', 'settings', 'setting', 'discover',
+    'search', 'live', 'music', 'tag', 'place', 'sound', 'effect', 'hashtag',
+    'notifications', 'notification', 'inbox', 'messages', 'message',
+    'upload', 'studio', 'creator', 'creators', 'analytics',
+    'trending', 'recommended', 'rewards', 'coin', 'balance', 'wallet', 'shop', 'business',
+    'legal', 'policy', 'about', 'feedback', 'help', 'support', 'privacy',
+    'safety', 'accessibility', 'transparency', 'forgood', 'community-guidelines',
+    'embed', 'share', 't', 'video', 'photo', 'collection', 'sticker',
+    'amp', 'auth', 'inapp', 'link', 'jump', 'en',
+    '404', '500', 'error', 'null', 'undefined', 'n/a'
 ]);
 
 /** Max age of a blocking task in ms; older tasks are cleared to prevent reload loops (e.g. after re-enabling extension) */
 const TASK_MAX_AGE_MS = 10 * 60 * 1000;
 
 /**
- * Returns true if the current URL looks like a TikTok user profile page (e.g. /username or /@user).
- * Used to avoid redirecting on homepage/explore/etc. which can cause infinite reload loops.
+ * Returns true if the current URL looks like a TikTok user profile (or that user's video/photo page).
+ * Rejects app routes like /setting/block-list, /explore, /login, etc.
  */
 function isTikTokProfilePage() {
     const path = window.location.pathname.replace(/^\/|\/$/g, '');
     const segment = path.split('/')[0] || '';
     const normalized = segment.replace(/^@/, '').toLowerCase();
+    if (!normalized) return false;
     if (TIKTOK_NON_PROFILE_PATHS.has(normalized) || TIKTOK_NON_PROFILE_PATHS.has(segment.toLowerCase())) {
         return false;
     }
-    return segment.length > 0;
+    // Handles are letters, numbers, dots, underscores (TikTok username rules)
+    if (!/^[a-z0-9._]{2,24}$/i.test(normalized)) {
+        return false;
+    }
+    return true;
+}
+
+/** First path segment as stored for the block list (keeps leading @ when present). */
+function currentProfileUsername() {
+    if (!isTikTokProfilePage()) return '';
+    let segment = '';
+    try {
+        segment = decodeURIComponent((window.location.pathname.split('/')[1] || '').trim());
+    } catch (e) {
+        segment = (window.location.pathname.split('/')[1] || '').trim();
+    }
+    return segment;
 }
 
 /** Username without a leading @. */
@@ -1033,15 +1057,11 @@ async function openActionsAndFindBlock(moreButton) {
     return null;
 }
 
-/** Usernames that are actually error/special paths – never add to block list or treat as profile */
-const INVALID_USERNAME_PATHS = new Set(['404', '500', 'error', 'null', 'undefined']);
-
 // Add current profile username to blocklist. Calls done(success, alreadyInList) when finished (so popup can avoid spam/race).
 // Keeps @ if present in URL (e.g. /@ai.movie66 → "@ai.movie66") so downloaded list matches user expectation.
 function addUserToBlockList(done) {
-    const username = (window.location.pathname.split('/')[1] || '').trim();
-    const normalized = username.replace(/^@/, '').toLowerCase();
-    if (!username || INVALID_USERNAME_PATHS.has(normalized)) {
+    const username = currentProfileUsername();
+    if (!username) {
         console.warn('Cannot add current page to block list (not a valid profile URL).');
         if (done) done(false, false);
         return;

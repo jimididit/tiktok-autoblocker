@@ -1,442 +1,573 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <title>TikTok AutoBlocker</title>
     <style>
+        :root {
+            --bg: #f4f6f8;
+            --surface: #ffffff;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --brand: #ff4757;
+            --brand-hover: #e83e4d;
+            --brand-soft: rgba(255, 71, 87, 0.08);
+            --success: #15803d;
+            --success-bg: #f0fdf4;
+            --success-border: #bbf7d0;
+            --info: #0369a1;
+            --info-bg: #f0f9ff;
+            --info-border: #bae6fd;
+            --warning: #a16207;
+            --warning-bg: #fffbeb;
+            --warning-border: #fde68a;
+            --error: #b91c1c;
+            --error-bg: #fef2f2;
+            --error-border: #fecaca;
+            --radius: 8px;
+            --radius-sm: 6px;
+            --space: 8px;
+            --focus: 0 0 0 3px rgba(255, 71, 87, 0.28);
+            --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            --ease: 160ms ease;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            width: 350px;
-            min-height: 400px;
+            width: 340px;
+            min-height: 0;
             margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            padding: 16px;
+            font-family: var(--font);
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--ink);
+            background:
+                linear-gradient(180deg, #fafbfc 0%, var(--bg) 48%, #eef1f5 100%);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                transition: none !important;
+                animation: none !important;
+            }
         }
 
         .header {
-            text-align: center;
-            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header .brand-mark {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            flex-shrink: 0;
+            display: block;
+        }
+
+        .header-copy {
+            min-width: 0;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 15px;
+            font-weight: 650;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+            line-height: 1.25;
         }
 
         .header p {
-            margin: 5px 0 0 0;
-            font-size: 14px;
-            opacity: 0.9;
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.35;
         }
 
-        .button {
+        .icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            flex-shrink: 0;
+            vertical-align: -0.15em;
+        }
+
+        .section {
+            margin-bottom: 12px;
+        }
+
+        .section-label {
+            margin: 0 0 6px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .button,
+        .file-input-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             width: 100%;
-            padding: 12px 16px;
-            margin: 8px 0;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
+            margin: 0;
+            padding: 10px 12px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.3;
+            text-align: center;
             cursor: pointer;
-            transition: all 0.2s ease;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            backdrop-filter: blur(10px);
+            transition: background-color var(--ease), border-color var(--ease), color var(--ease), box-shadow var(--ease);
         }
 
-        .button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .button:active {
-            transform: translateY(0);
+        .button:focus-visible,
+        .file-input-label:focus-visible,
+        .selectors summary:focus-visible,
+        .selectors input:focus-visible {
+            outline: none;
+            box-shadow: var(--focus);
         }
 
         .button.primary {
-            background: #ff4757;
-            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+            background: var(--brand);
+            color: #fff;
+            border-color: var(--brand);
         }
 
         .button.primary:hover {
-            background: #ff3742;
-            box-shadow: 0 6px 16px rgba(255, 71, 87, 0.6);
+            background: var(--brand-hover);
+            border-color: var(--brand-hover);
         }
 
-        .button.secondary {
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        .button.primary:active {
+            background: #d93644;
+        }
+
+        .button.secondary,
+        .file-input-label {
+            background: var(--surface);
+            color: var(--ink);
+            border-color: var(--border-strong);
+            font-weight: 550;
+        }
+
+        .button.secondary:hover,
+        .file-input-label:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        .button.secondary:active,
+        .file-input-label:active {
+            background: #f1f5f9;
+        }
+
+        .button.ghost {
+            background: transparent;
+            color: var(--muted);
+            border-color: transparent;
+            font-weight: 500;
+            font-size: 12px;
+            padding: 8px 10px;
+            justify-content: flex-start;
+        }
+
+        .button.ghost:hover {
+            color: var(--ink);
+            background: var(--brand-soft);
         }
 
         .file-input-container {
-            margin: 15px 0;
-            text-align: center;
+            margin: 0;
         }
 
         .file-input {
             display: none;
         }
 
-        .file-input-label {
-            display: inline-block;
-            padding: 10px 16px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-
-        .file-input-label:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
         .status {
-            margin: 15px 0;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            text-align: center;
+            margin: 0 0 12px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            text-align: left;
             display: none;
-            backdrop-filter: blur(10px);
+            border: 1px solid transparent;
         }
 
         .status.info {
-            background: rgba(52, 152, 219, 0.2);
-            border: 1px solid rgba(52, 152, 219, 0.3);
+            display: block;
+            background: var(--info-bg);
+            border-color: var(--info-border);
+            color: var(--info);
         }
 
         .status.success {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid rgba(46, 204, 113, 0.3);
+            display: block;
+            background: var(--success-bg);
+            border-color: var(--success-border);
+            color: var(--success);
         }
 
         .status.warning {
-            background: rgba(241, 196, 15, 0.2);
-            border: 1px solid rgba(241, 196, 15, 0.3);
+            display: block;
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+            color: var(--warning);
         }
 
         .status.error {
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid rgba(231, 76, 60, 0.3);
+            display: block;
+            background: var(--error-bg);
+            border-color: var(--error-border);
+            color: var(--error);
         }
 
-        /* Toast Notification System */
         .toast-container {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 12px;
+            right: 12px;
+            left: 12px;
             z-index: 1000;
             pointer-events: none;
         }
 
         .toast {
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            font-size: 13px;
-            max-width: 300px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+            background: var(--ink);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            font-size: 12px;
+            max-width: 100%;
+            border-left: 3px solid #94a3b8;
+            transform: translateY(-8px);
+            opacity: 0;
+            transition: transform 180ms ease, opacity 180ms ease;
             pointer-events: auto;
         }
 
         .toast.show {
-            transform: translateX(0);
+            transform: translateY(0);
+            opacity: 1;
         }
 
-        .toast.info {
-            border-left: 4px solid #3498db;
-        }
-
-        .toast.success {
-            border-left: 4px solid #2ecc71;
-        }
-
-        .toast.warning {
-            border-left: 4px solid #f1c40f;
-        }
-
-        .toast.error {
-            border-left: 4px solid #e74c3c;
-        }
+        .toast.info { border-left-color: #0ea5e9; }
+        .toast.success { border-left-color: #22c55e; }
+        .toast.warning { border-left-color: #eab308; }
+        .toast.error { border-left-color: #ef4444; }
 
         .stats {
-            margin: 15px 0;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 0 0 12px;
+            padding: 10px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             font-size: 12px;
-            text-align: center;
         }
 
-        .divider {
-            height: 1px;
-            background: rgba(255, 255, 255, 0.2);
-            margin: 15px 0;
+        .stats > div:first-child {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            font-weight: 550;
         }
 
-        .footer {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 11px;
-            opacity: 0.7;
-        }
-
-        /* Debug Toggle Styles */
-        .debug-toggle-container {
-            margin-top: 15px;
-            text-align: center;
-        }
-
-        .debug-toggle {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-
-        .debug-toggle input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .debug-toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .debug-toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        .debug-toggle input:checked + .debug-toggle-slider {
-            background-color: #2196F3; /* Blue color for on */
-        }
-
-        .debug-toggle input:focus + .debug-toggle-slider {
-            box-shadow: 0 0 1px #2196F3;
-        }
-
-        .debug-toggle input:checked + .debug-toggle-slider:before {
-            transform: translateX(26px);
-        }
-
-        .debug-toggle-label {
-            margin-left: 10px;
-            font-size: 14px;
-            color: white;
-        }
-
-        /* Debug Features Section Styles */
-        .debug-features {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .debug-features h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 18px;
-            font-weight: 600;
-            color: white;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .debug-section {
-            margin-bottom: 15px;
-        }
-
-        .debug-section button {
-            width: 100%;
-            margin-bottom: 8px;
+        #blockCount {
+            color: var(--ink);
+            font-weight: 650;
+            font-variant-numeric: tabular-nums;
         }
 
         .selectors {
-            margin-top: 8px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            margin: 0 0 12px;
+            padding: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
         }
 
         .selectors summary {
             cursor: pointer;
-            font-size: 13px;
+            list-style: none;
+            padding: 10px 12px;
+            font-size: 12px;
             font-weight: 600;
+            color: var(--ink);
+            user-select: none;
+        }
+
+        .selectors summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .selectors summary::after {
+            content: "";
+            float: right;
+            width: 0;
+            height: 0;
+            margin-top: 5px;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid var(--muted);
+        }
+
+        .selectors[open] summary {
+            border-bottom: 1px solid var(--border);
+            background: #f8fafc;
+        }
+
+        .selectors[open] summary::after {
+            transform: rotate(180deg);
+        }
+
+        .selectors-body {
+            padding: 10px 12px 12px;
         }
 
         .selectors .selector-group {
-            margin: 14px 0 0;
-            font-size: 12px;
+            margin: 12px 0 0;
+            font-size: 11px;
             font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .selectors .selector-group:first-of-type {
+            margin-top: 4px;
         }
 
         .selectors label {
             display: block;
-            margin-top: 10px;
-            font-size: 11px;
-            opacity: 0.9;
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 550;
+            color: var(--ink);
         }
 
         .selectors input {
             width: 100%;
-            box-sizing: border-box;
             margin-top: 4px;
-            padding: 8px;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            background: #fff;
+            color: var(--ink);
+            font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
+            font-size: 11px;
+        }
+
+        .selectors input::placeholder {
+            color: #94a3b8;
         }
 
         .selectors .row {
             display: flex;
             gap: 6px;
-        }
-
-        .selectors .row .button {
             margin-top: 6px;
         }
 
-        .selector-hint {
-            margin: 8px 0 0 0;
-            font-size: 11px;
-            line-height: 1.4;
-            opacity: 0.85;
+        .selectors .row .button {
+            margin: 0;
+            padding: 7px 10px;
+            font-size: 12px;
         }
 
+        .selector-hint {
+            margin: 6px 0 0;
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--muted);
+        }
 
+        .debug-features {
+            margin: 0 0 12px;
+            padding: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .debug-features h3 {
+            margin: 0 0 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .debug-section button {
+            width: 100%;
+            margin-bottom: 6px;
+            font-size: 12px;
+            padding: 8px 10px;
+        }
+
+        .footer {
+            margin-top: 4px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .footer strong {
+            font-weight: 650;
+            color: #475569;
+        }
     </style>
 </head>
 <body>
-    <!-- Toast Notification Container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <div class="header">
-        <h1>🚫 TikTok AutoBlocker</h1>
-        <p>Mass block users & create custom blocklists</p>
-    </div>
+    <header class="header">
+        <img class="brand-mark" src="icons/icon48.png" width="36" height="36" alt="">
+        <div class="header-copy">
+            <h1>TikTok AutoBlocker</h1>
+            <p>Block users and manage shareable lists</p>
+        </div>
+    </header>
 
-    <button id="addCurrentUser" class="button primary">
-        ➕ Add Current User to Block List
-    </button>
+    <section class="section" aria-label="Primary action">
+        <button id="addCurrentUser" class="button primary">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/>
+            </svg>
+            Add current user
+        </button>
+    </section>
 
-    <button id="downloadBlockList" class="button secondary">
-        📥 Download Block List
-    </button>
+    <section class="section" aria-label="Block list">
+        <p class="section-label">Block list</p>
+        <div class="stack">
+            <button id="downloadBlockList" class="button secondary">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M11 3h2v10.2l3.6-3.6 1.4 1.4L12 17 6 11l1.4-1.4L11 13.2V3zM5 19h14v2H5z"/>
+                </svg>
+                Download list
+            </button>
 
-    <div class="file-input-container">
-        <label for="fileInput" class="file-input-label">
-            📁 Upload Block List (.txt or .json)
-        </label>
-        <input type="file" id="fileInput" class="file-input" accept=".txt,.json,text/plain,application/json">
-    </div>
-    <button id="importBlockedAccounts" type="button" class="button secondary">
-        Add my blocked accounts
-    </button>
-    <button id="helpBlockList" type="button" class="button secondary" style="font-size: 12px; padding: 8px 12px;">
-        ❓ How do I get my existing blocked list from TikTok?
-    </button>
+            <div class="file-input-container">
+                <label for="fileInput" class="file-input-label" tabindex="0">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M12 3l5 5h-3v6h-4V8H7l5-5zm-7 14h14v2H5v-2z"/>
+                    </svg>
+                    Upload list
+                </label>
+                <input type="file" id="fileInput" class="file-input" accept=".txt,.json,text/plain,application/json">
+            </div>
+
+            <button id="importBlockedAccounts" type="button" class="button secondary">
+                Add my blocked accounts
+            </button>
+
+            <button id="helpBlockList" type="button" class="button ghost">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 17a1.25 1.25 0 1 1 1.25-1.25A1.25 1.25 0 0 1 12 19zm1.6-5.55-.5.3V15h-2.2v-2.05a1.6 1.6 0 0 1 .85-1.4c1.25-.7 1.85-1.15 1.85-2.15A1.85 1.85 0 0 0 12 7.6a1.9 1.9 0 0 0-1.95 1.7H7.9A3.95 3.95 0 0 1 12 5.55a3.9 3.9 0 0 1 4 3.7c0 1.85-1.2 2.7-2.4 3.4z"/>
+                </svg>
+                How do I export my TikTok block list?
+            </button>
+        </div>
+    </section>
+
+    <div id="status" class="status" role="status"></div>
 
     <details id="selectorSettings" class="selectors">
-        <summary>Page selectors</summary>
-        <p class="selector-hint">Leave a field empty to keep the built-in selector. Pick closes this popup; click the control on the page, then reopen the popup.</p>
-        <p class="selector-group">Blocking a profile</p>
-        <label for="selectorMore">Actions (⋯) button</label>
-        <input id="selectorMore" type="text" spellcheck="false" placeholder='button[data-e2e="user-more"]'>
-        <div class="row">
-            <button id="pickMore" type="button" class="button secondary">Pick</button>
+        <summary>Advanced · Page selectors</summary>
+        <div class="selectors-body">
+            <p class="selector-hint">Leave empty to keep built-in selectors. Pick closes this popup; click the control on the page, then reopen.</p>
+            <p class="selector-group">Blocking a profile</p>
+            <label for="selectorMore">Actions (⋯) button</label>
+            <input id="selectorMore" type="text" spellcheck="false" placeholder='button[data-e2e="user-more"]'>
+            <div class="row">
+                <button id="pickMore" type="button" class="button secondary">Pick</button>
+            </div>
+            <label for="selectorBlock">Block menu item</label>
+            <input id="selectorBlock" type="text" spellcheck="false" placeholder='div[role="button"][aria-label="Block"]'>
+            <div class="row">
+                <button id="pickBlock" type="button" class="button secondary">Pick</button>
+            </div>
+            <label for="selectorConfirm">Confirm Block button</label>
+            <input id="selectorConfirm" type="text" spellcheck="false" placeholder='button[data-e2e="block-popup-block-btn"]'>
+            <div class="row">
+                <button id="pickConfirm" type="button" class="button secondary">Pick</button>
+            </div>
+            <p class="selector-group">Blocked accounts page</p>
+            <p class="selector-hint">Username element on tiktok.com/setting/block-list.</p>
+            <label for="selectorBlockedAccount">Username</label>
+            <input id="selectorBlockedAccount" type="text" spellcheck="false" placeholder='h3[data-e2e="block-user-username"]'>
+            <div class="row">
+                <button id="pickBlockedAccount" type="button" class="button secondary">Pick</button>
+            </div>
+            <div class="stack" style="margin-top: 10px;">
+                <button id="saveSelectors" type="button" class="button primary">Save selectors</button>
+                <button id="testSelectors" type="button" class="button secondary">Test on this page</button>
+                <button id="resetSelectors" type="button" class="button secondary">Reset to defaults</button>
+            </div>
         </div>
-        <label for="selectorBlock">Block menu item</label>
-        <input id="selectorBlock" type="text" spellcheck="false" placeholder='div[role="button"][aria-label="Block"]'>
-        <div class="row">
-            <button id="pickBlock" type="button" class="button secondary">Pick</button>
-        </div>
-        <label for="selectorConfirm">Confirm Block button</label>
-        <input id="selectorConfirm" type="text" spellcheck="false" placeholder='button[data-e2e="block-popup-block-btn"]'>
-        <div class="row">
-            <button id="pickConfirm" type="button" class="button secondary">Pick</button>
-        </div>
-        <p class="selector-group">Blocked accounts page</p>
-        <p class="selector-hint">The element whose text is the username on tiktok.com/setting/block-list.</p>
-        <label for="selectorBlockedAccount">Username</label>
-        <input id="selectorBlockedAccount" type="text" spellcheck="false" placeholder='h3[data-e2e="block-user-username"]'>
-        <div class="row">
-            <button id="pickBlockedAccount" type="button" class="button secondary">Pick</button>
-        </div>
-        <button id="saveSelectors" type="button" class="button primary">Save selectors</button>
-        <button id="testSelectors" type="button" class="button secondary">Test on this page</button>
-        <button id="resetSelectors" type="button" class="button secondary">Reset to defaults</button>
     </details>
 
-    <!-- Debug Features Section (controlled by DEBUG_MODE_ENABLED) -->
     <div id="debugFeatures" class="debug-features" style="display: none;">
         <div class="debug-section">
             <h3>🔍 Debug Tools</h3>
-            
-            <button id="debugPage" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
-                🔍 Debug Page Structure
-            </button>
-
-            <button id="testBlocking" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
-                🧪 Test Blocking Process
-            </button>
-
-            <button id="exportDebug" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
-                📄 Export Debug Log
-            </button>
-
-            <button id="clearDebug" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
-                🗑️ Clear Debug Log
-            </button>
-
-            <button id="clearTasks" class="button secondary" style="font-size: 11px; padding: 8px 12px;">
-                🔄 Clear Stuck Tasks
-            </button>
+            <button id="debugPage" class="button secondary">🔍 Debug Page Structure</button>
+            <button id="testBlocking" class="button secondary">🧪 Test Blocking Process</button>
+            <button id="exportDebug" class="button secondary">📄 Export Debug Log</button>
+            <button id="clearDebug" class="button secondary">🗑️ Clear Debug Log</button>
+            <button id="clearTasks" class="button secondary">🔄 Clear Stuck Tasks</button>
         </div>
     </div>
 
-    <div id="status" class="status"></div>
-
     <div id="stats" class="stats">
-        <div>📊 Block List Stats</div>
-        <div id="blockCount">Loading...</div>
+        <div>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path fill="currentColor" d="M4 19h16v2H4v-2zm2-3h2V9H6v7zm5 0h2V5h-2v11zm5 0h2v-4h-2v4z"/>
+            </svg>
+            Saved accounts
+        </div>
+        <div id="blockCount">Loading…</div>
     </div>
 
-    <div class="divider"></div>
-
-    <div class="footer">
-        <div>v0.7.1 - Palm + loop icon</div>
-        <div>Upload .txt or TikTok data export .json</div>
-    </div>
+    <footer class="footer">
+        <strong>v0.7.1</strong>
+        <span>.txt or TikTok export .json</span>
+    </footer>
 
     <script src="popup.js"></script>
 </body>
-</html> 
+</html>

@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (request.action === 'updateStatus') {
             updateStatus(request.message, request.type);
         } else if (request.action === 'showDetailedToast') {
-            showToast(request.message, request.type, 8000); // Show for 8 seconds
+            showToast(request.message, request.type || 'info', 5000);
         }
     });
     
@@ -193,7 +193,7 @@ function addCurrentUser() {
                     updateStatus(response.alreadyInList ? 'User already in block list.' : 'User added to block list!', 'success');
                     loadBlockListStats();
                 } else {
-                    updateStatus('Failed to add user. Make sure you\'re on a TikTok profile page.', 'error');
+                    updateStatus('Open a TikTok profile page first (for example /@username).', 'warning');
                 }
             });
         });
@@ -491,63 +491,60 @@ function clearStuckTasks() {
     });
 }
 
+let statusHideTimer = null;
+
 /**
- * Show a toast notification
+ * Brief success toast only — warnings/errors use the inline status banner.
  */
-function showToast(message, type = 'info', duration = 4000) {
+function showToast(message, type = 'success', duration = 3000) {
     const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
-    // Handle multi-line messages
-    if (message.includes('\n')) {
-        toast.innerHTML = message.replace(/\n/g, '<br>');
-    } else {
-        toast.textContent = message;
-    }
-    
+    toast.setAttribute('role', 'status');
+    toast.textContent = message;
     toastContainer.appendChild(toast);
-    
-    // Trigger animation
-    setTimeout(() => {
+
+    requestAnimationFrame(() => {
         toast.classList.add('show');
-    }, 100);
-    
-    // Auto-remove after duration
+    });
+
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
             }
-        }, 300);
+        }, 200);
     }, duration);
 }
 
 /**
- * Update the status display
+ * Primary feedback channel: inline status banner.
+ * Success also gets a short toast; warning/error stay until the next message.
  */
 function updateStatus(message, type = 'info') {
     const statusElement = document.getElementById('status');
+    if (!statusElement) return;
+
+    if (statusHideTimer) {
+        clearTimeout(statusHideTimer);
+        statusHideTimer = null;
+    }
+
     statusElement.textContent = message;
     statusElement.className = `status ${type}`;
     statusElement.style.display = 'block';
-    
-    // Also show a toast for important messages
-    if (type === 'success' || type === 'warning' || type === 'error' || type === 'info') {
-        showToast(message, type);
-    }
-    
-    // Auto-hide success messages after 3 seconds
+    statusElement.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status');
+
     if (type === 'success') {
-        setTimeout(() => {
+        showToast(message, 'success', 3000);
+        statusHideTimer = setTimeout(() => {
             statusElement.style.display = 'none';
-        }, 3000);
-    }
-    
-    // Auto-hide info messages after 5 seconds
-    if (type === 'info') {
-        setTimeout(() => {
+        }, 4000);
+    } else if (type === 'info') {
+        statusHideTimer = setTimeout(() => {
             statusElement.style.display = 'none';
         }, 5000);
     }
