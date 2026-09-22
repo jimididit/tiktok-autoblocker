@@ -434,6 +434,13 @@
             padding: 8px 10px;
         }
 
+        .button.secondary:disabled,
+        .button.primary:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .footer {
             margin-top: 4px;
             padding-top: 12px;
@@ -470,6 +477,17 @@
             </svg>
             Add current user
         </button>
+    </section>
+
+    <section class="section" aria-label="Queue">
+        <p class="section-label">Queue</p>
+        <p id="queueStatus" class="section-label" style="text-transform:none;letter-spacing:0;font-weight:500;margin:0 0 6px;">
+            No active run
+        </p>
+        <div class="stack" style="flex-direction:row;gap:6px;">
+            <button id="pauseQueue" type="button" class="button secondary" style="flex:1;" disabled>Pause</button>
+            <button id="resumeQueue" type="button" class="button secondary" style="flex:1;" disabled>Resume</button>
+        </div>
     </section>
 
     <section class="section" aria-label="Block list">
@@ -564,7 +582,7 @@
     </div>
 
     <footer class="footer">
-        <strong>v0.7.1</strong>
+        <strong>v0.8.0</strong>
         <span>.txt or TikTok export .json</span>
     </footer>
 

@@ -215,9 +215,15 @@ function isOnProfile(username) {
  */
 function clearStuckBlockingSession(reason) {
     console.log('🛑 Clearing blocking session:', reason);
-    chrome.storage.local.remove(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt'], function() {
+    chrome.storage.local.remove(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt', 'autoBlockPaused'], function() {
         console.log('✅ Cleared autoBlock and queue');
     });
+}
+
+function remainingBlockCount(queue, task) {
+    const queued = Array.isArray(queue) ? queue.length : 0;
+    const current = (task && task.username) ? 1 : 0;
+    return queued + current;
 }
 
 /**
@@ -227,11 +233,12 @@ function clearStuckBlockingSession(reason) {
  */
 function checkForPostNavigationTask() {
     console.log('🔍 Checking for post-navigation tasks...');
-    chrome.storage.local.get(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt'], function(result) {
+    chrome.storage.local.get(['autoBlock', 'autoBlockQueue', 'autoBlockTaskSetAt', 'autoBlockPaused'], function(result) {
         const task = result.autoBlock;
         const queue = (result.autoBlockQueue || []);
         const taskSetAt = result.autoBlockTaskSetAt;
         const onProfilePage = isTikTokProfilePage();
+        const paused = !!result.autoBlockPaused;
 
         // If we're not on a profile page (e.g. homepage, explore), never redirect – clear stuck session to stop reload loop
         if (!onProfilePage && (task?.username || queue.length > 0)) {
@@ -242,6 +249,13 @@ function checkForPostNavigationTask() {
         // Expire old tasks so re-enabling the extension doesn’t resume an old run
         if (taskSetAt && (Date.now() - taskSetAt > TASK_MAX_AGE_MS)) {
             clearStuckBlockingSession('task older than ' + (TASK_MAX_AGE_MS / 60000) + ' minutes');
+            return;
+        }
+
+        if (paused) {
+            const left = remainingBlockCount(queue, task);
+            console.log('⏸️ Block run paused; leaving', left, 'remaining');
+            updateStatus('Paused - ' + left + ' left. Open the popup and click Resume.', 'warning');
             return;
         }
 
@@ -686,10 +700,19 @@ async function handlePublicAccountBlocking(task) {
  */
 function handleNextUser() {
     console.log('🔄 handleNextUser called');
-    chrome.storage.local.get(['autoBlockQueue'], function(result) {
+    chrome.storage.local.get(['autoBlockQueue', 'autoBlockPaused', 'autoBlock'], function(result) {
         const users = result.autoBlockQueue || [];
+        const paused = !!result.autoBlockPaused;
         console.log('📋 Current queue:', users);
         console.log('📊 Queue length:', users.length);
+
+        if (paused) {
+            const left = remainingBlockCount(users, null);
+            console.log('⏸️ Paused before next user;', left, 'left in queue');
+            updateStatus('Paused - ' + left + ' left. Click Resume in the popup to continue.', 'warning');
+            chrome.storage.local.remove(['autoBlock', 'autoBlockTaskSetAt']);
+            return;
+        }
         
         if (users.length > 0) {
             let nextUser = users.shift();
@@ -734,7 +757,8 @@ function handleNextUser() {
             }, function() {
                 console.log('💾 Updated storage with next user:', nextUser);
                 const actionText = nextUser.action === 'unblock' ? 'unblocking' : 'blocking';
-                updateStatus(`Queue: ${users.length} users remaining (${actionText})`, 'info');
+                const left = remainingBlockCount(users, nextUser);
+                updateStatus(`Queue: ${left} left (${actionText})`, 'info');
                 
                 // Check if we need to navigate to the user's page
                 if (!isOnProfile(nextUser.username)) {
@@ -746,12 +770,12 @@ function handleNextUser() {
                     checkForPostNavigationTask();
                 }
             });
-                        } else {
-                    console.log('✅ No more users in the queue.');
-                    displayBlockingStats();
-                    updateStatus('Blocking process complete! All users processed.', 'success');
-                    chrome.storage.local.remove(['autoBlockQueue', 'autoBlock', 'autoBlockTaskSetAt', 'blockingStats']);
-                }
+        } else {
+            console.log('✅ No more users in the queue.');
+            displayBlockingStats();
+            updateStatus('Blocking process complete! All users processed.', 'success');
+            chrome.storage.local.remove(['autoBlockQueue', 'autoBlock', 'autoBlockTaskSetAt', 'blockingStats', 'autoBlockPaused']);
+        }
     });
 }
 
@@ -1354,7 +1378,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         console.log('🎯 Mode:', request.mode || 'block');
         
         // Clear any existing stuck tasks first
-        chrome.storage.local.remove(['autoBlock'], function() {
+        chrome.storage.local.remove(['autoBlock', 'autoBlockPaused'], function() {
             console.log('🗑️ Cleared any existing auto block task');
             
             // Reset blocking statistics for new session
@@ -1363,24 +1387,67 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             const usernames = request.usernames.map(username => ({
                 username: username.trim(), 
                 action: 'block' // Always use block mode for now
-                // action: request.mode === 'unblock' ? 'unblock' : 'block'
             }));
             console.log('🔄 Processed usernames:', usernames);
             
             // Set total count for statistics
             blockingStats.total = usernames.length;
             
-            chrome.storage.local.set({autoBlockQueue: usernames}, function() {
+            chrome.storage.local.set({ autoBlockQueue: usernames, autoBlockPaused: false }, function() {
                 console.log('💾 Block queue saved to storage');
-                const actionText = 'blocking'; // Always blocking for now
-                // const actionText = request.mode === 'unblock' ? 'unblocking' : 'blocking';
-                updateStatus(`Loaded ${usernames.length} usernames for ${actionText}`, 'info');
+                updateStatus(`Loaded ${usernames.length} usernames for blocking`, 'info');
                 console.log('🚀 Starting process...');
                 handleNextUser();
             });
         });
         
         sendResponse({success: true});
+    } else if (request.action === 'pauseBlockQueue') {
+        chrome.storage.local.get(['autoBlockQueue', 'autoBlock'], function(result) {
+            const left = remainingBlockCount(result.autoBlockQueue || [], result.autoBlock);
+            chrome.storage.local.set({ autoBlockPaused: true }, function() {
+                updateStatus(
+                    left > 0
+                        ? ('Pause requested - will stop after the current profile. ' + left + ' left.')
+                        : 'Nothing in the queue to pause.',
+                    left > 0 ? 'warning' : 'info'
+                );
+                sendResponse({ success: true, remaining: left });
+            });
+        });
+        return true;
+    } else if (request.action === 'resumeBlockQueue') {
+        chrome.storage.local.set({ autoBlockPaused: false }, function() {
+            chrome.storage.local.get(['autoBlockQueue', 'autoBlock'], function(result) {
+                const queue = result.autoBlockQueue || [];
+                const task = result.autoBlock;
+                const left = remainingBlockCount(queue, task);
+                if (left === 0) {
+                    updateStatus('Nothing left to resume.', 'info');
+                    sendResponse({ success: false, reason: 'empty', remaining: 0 });
+                    return;
+                }
+                updateStatus('Resuming - ' + left + ' left.', 'info');
+                sendResponse({ success: true, remaining: left });
+                if (task && task.username) {
+                    checkForPostNavigationTask();
+                } else {
+                    handleNextUser();
+                }
+            });
+        });
+        return true;
+    } else if (request.action === 'getQueueStatus') {
+        chrome.storage.local.get(['autoBlockQueue', 'autoBlock', 'autoBlockPaused'], function(result) {
+            const queue = result.autoBlockQueue || [];
+            const task = result.autoBlock;
+            sendResponse({
+                remaining: remainingBlockCount(queue, task),
+                paused: !!result.autoBlockPaused,
+                current: task && task.username ? task.username : null
+            });
+        });
+        return true;
     } else if (request.action === 'analyzePage') {
         // Debug function to analyze page structure
         analyzePageStructure();

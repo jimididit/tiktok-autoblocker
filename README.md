@@ -1,6 +1,6 @@
 # TikTok AutoBlocker
 
-![Version 0.7.1](https://img.shields.io/badge/version-0.7.1-ff4757)
+![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-ff4757)
 
 <p>
   <img src="assets/extension-screenshot.jpg" width="100%" alt="Extension screenshot">
@@ -26,6 +26,7 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 - **Multiple URL Pattern Support**: Handles various TikTok URL formats
 - **Comprehensive Logging**: Detailed console output for debugging and monitoring
 - **Queue Management**: Robust task queue system for processing large lists
+- **Pause / Resume**: Stop after the current profile; remaining count on the extension badge
 - **Cross-browser Compatibility**: Tampermonkey version works in Chrome, Firefox, Safari, Edge, and more
 
 ## 📁 Project Structure
@@ -381,6 +382,12 @@ If you're still having issues:
 4. Open an issue on the GitHub repository with detailed information
 
 ## 📈 Version History
+
+### v0.8.0
+
+- Pause and Resume for an active block run (finishes the current profile, then stops).
+- Remaining queue count on the Chrome extension toolbar badge (gray while paused).
+- Queue status and Pause / Resume controls in the extension popup and Tampermonkey panel.
 
 ### v0.7.0
 

@@ -10,6 +10,7 @@ const DEBUG_MODE_ENABLED = false;
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize popup
     loadBlockListStats();
+    loadQueueStatus();
     initializeDebugFeatures();
     
     // Add event listeners
@@ -18,6 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('fileInput').addEventListener('change', handleFileUpload);
     document.getElementById('helpBlockList').addEventListener('click', showBlockListHelp);
     document.getElementById('importBlockedAccounts').addEventListener('click', importBlockedAccounts);
+    document.getElementById('pauseQueue').addEventListener('click', pauseQueue);
+    document.getElementById('resumeQueue').addEventListener('click', resumeQueue);
     document.getElementById('saveSelectors').addEventListener('click', saveSelectors);
     document.getElementById('testSelectors').addEventListener('click', testSelectors);
     document.getElementById('resetSelectors').addEventListener('click', resetSelectors);
@@ -40,8 +43,10 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         if (request.action === 'updateStatus') {
             updateStatus(request.message, request.type);
+            loadQueueStatus();
         } else if (request.action === 'showDetailedToast') {
             showToast(request.message, request.type || 'info', 5000);
+            loadQueueStatus();
         }
     });
     
@@ -493,8 +498,90 @@ function clearStuckTasks() {
 
 let statusHideTimer = null;
 
+function applyQueueStatus(status) {
+    const statusEl = document.getElementById('queueStatus');
+    const pauseBtn = document.getElementById('pauseQueue');
+    const resumeBtn = document.getElementById('resumeQueue');
+    if (!statusEl || !pauseBtn || !resumeBtn) return;
+
+    const remaining = status && typeof status.remaining === 'number' ? status.remaining : 0;
+    const paused = !!(status && status.paused);
+    const current = status && status.current ? status.current : null;
+
+    if (remaining <= 0) {
+        statusEl.textContent = 'No active run';
+        pauseBtn.disabled = true;
+        resumeBtn.disabled = true;
+        return;
+    }
+
+    const who = current ? (' · now @' + String(current).replace(/^@/, '')) : '';
+    statusEl.textContent = paused
+        ? ('Paused - ' + remaining + ' left' + who)
+        : (remaining + ' left' + who);
+    pauseBtn.disabled = paused;
+    resumeBtn.disabled = !paused;
+}
+
+function loadQueueStatus() {
+    chrome.storage.local.get(['autoBlockQueue', 'autoBlock', 'autoBlockPaused'], function(result) {
+        const queue = result.autoBlockQueue || [];
+        const task = result.autoBlock;
+        applyQueueStatus({
+            remaining: queue.length + ((task && task.username) ? 1 : 0),
+            paused: !!result.autoBlockPaused,
+            current: task && task.username ? task.username : null
+        });
+    });
+}
+
+function pauseQueue() {
+    activeTikTokTab(function(currentTab) {
+        withContentScript(currentTab.id, function() {
+            chrome.tabs.sendMessage(currentTab.id, { action: 'pauseBlockQueue' }, function(response) {
+                if (chrome.runtime.lastError) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
+                loadQueueStatus();
+                if (response && response.remaining > 0) {
+                    updateStatus('Pause requested - finishes current profile, then stops.', 'warning');
+                } else {
+                    updateStatus('Nothing in the queue to pause.', 'info');
+                }
+            });
+        });
+    });
+}
+
+function resumeQueue() {
+    activeTikTokTab(function(currentTab) {
+        withContentScript(currentTab.id, function() {
+            chrome.tabs.sendMessage(currentTab.id, { action: 'resumeBlockQueue' }, function(response) {
+                if (chrome.runtime.lastError) {
+                    updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
+                    return;
+                }
+                loadQueueStatus();
+                if (response && response.success) {
+                    updateStatus('Resuming - ' + (response.remaining || 0) + ' left.', 'info');
+                } else {
+                    updateStatus('Nothing left to resume.', 'info');
+                }
+            });
+        });
+    });
+}
+
+chrome.storage.onChanged.addListener(function(changes, area) {
+    if (area !== 'local') return;
+    if (changes.autoBlockQueue || changes.autoBlock || changes.autoBlockPaused) {
+        loadQueueStatus();
+    }
+});
+
 /**
- * Brief success toast only — warnings/errors use the inline status banner.
+ * Brief success toast only - warnings/errors use the inline status banner.
  */
 function showToast(message, type = 'success', duration = 3000) {
     const toastContainer = document.getElementById('toastContainer');

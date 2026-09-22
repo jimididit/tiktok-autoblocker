@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.7.1
+// @version      0.8.0
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        https://www.tiktok.com/*
@@ -37,20 +37,109 @@
         try { pageStorage.removeItem('autoBlock'); } catch (cleanupError) {}
     }
 
+    function remainingBlockCount(queue, task) {
+        const queued = Array.isArray(queue) ? queue.length : 0;
+        const current = (task && task.username) ? 1 : 0;
+        return queued + current;
+    }
+
+    function readQueue() {
+        try {
+            return JSON.parse(pageStorage.getItem('autoBlockQueue') || '[]');
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function readCurrentTask() {
+        try {
+            const raw = pageStorage.getItem('autoBlock');
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            pageStorage.removeItem('autoBlock');
+            return null;
+        }
+    }
+
+    function isPaused() {
+        return pageStorage.getItem('autoBlockPaused') === '1';
+    }
+
+    function setPaused(paused) {
+        if (paused) {
+            pageStorage.setItem('autoBlockPaused', '1');
+        } else {
+            pageStorage.removeItem('autoBlockPaused');
+        }
+        refreshQueueControls();
+    }
+
+    function refreshQueueControls() {
+        const statusEl = document.getElementById('ttab-queue-status');
+        const pauseBtn = document.getElementById('ttab-pause-queue');
+        const resumeBtn = document.getElementById('ttab-resume-queue');
+        if (!statusEl || !pauseBtn || !resumeBtn) return;
+
+        const queue = readQueue();
+        const task = readCurrentTask();
+        const remaining = remainingBlockCount(queue, task);
+        const paused = isPaused();
+
+        if (remaining <= 0) {
+            statusEl.textContent = 'No active run';
+            pauseBtn.disabled = true;
+            resumeBtn.disabled = true;
+            return;
+        }
+
+        const who = task && task.username ? (' · now @' + profileHandle(task.username)) : '';
+        statusEl.textContent = paused
+            ? ('Paused — ' + remaining + ' left' + who)
+            : (remaining + ' left' + who);
+        pauseBtn.disabled = paused;
+        resumeBtn.disabled = !paused;
+    }
+
+    function pauseBlockQueue() {
+        const remaining = remainingBlockCount(readQueue(), readCurrentTask());
+        setPaused(true);
+        if (remaining > 0) {
+            updateStatus('Pause requested — finishes current profile, then stops. ' + remaining + ' left.', 'warning');
+        } else {
+            updateStatus('Nothing in the queue to pause.', 'info');
+        }
+    }
+
+    function resumeBlockQueue() {
+        const queue = readQueue();
+        const task = readCurrentTask();
+        const remaining = remainingBlockCount(queue, task);
+        if (remaining === 0) {
+            setPaused(false);
+            updateStatus('Nothing left to resume.', 'info');
+            return;
+        }
+        setPaused(false);
+        updateStatus('Resuming — ' + remaining + ' left.', 'info');
+        if (task && task.username) {
+            checkForPostNavigationTask();
+        } else {
+            handleNextUser();
+        }
+    }
+
     /**
      * Checks for tasks that should continue after page navigation.
      * This typically involves continuing a blocking process that was interrupted by a page load.
      */
     function checkForPostNavigationTask() {
-        let task = null;
-        try {
-            const raw = pageStorage.getItem('autoBlock');
-            task = raw ? JSON.parse(raw) : null;
-        } catch (error) {
-            console.error('Cleared unreadable block task:', error);
-            pageStorage.removeItem('autoBlock');
+        if (isPaused()) {
+            const left = remainingBlockCount(readQueue(), readCurrentTask());
+            updateStatus('Paused — ' + left + ' left. Click Resume to continue.', 'warning');
+            refreshQueueControls();
             return;
         }
+        const task = readCurrentTask();
         if (task && task.username) {
             performBlockOperation(task);
         }
@@ -478,18 +567,29 @@
      * Processes the next user in the queue.
      */
     function handleNextUser() {
-        const users = JSON.parse(pageStorage.getItem('autoBlockQueue') || '[]');
+        if (isPaused()) {
+            const left = remainingBlockCount(readQueue(), null);
+            pageStorage.removeItem('autoBlock');
+            updateStatus('Paused — ' + left + ' left. Click Resume to continue.', 'warning');
+            refreshQueueControls();
+            return;
+        }
+        const users = readQueue();
         if (users.length > 0) {
             const nextUser = users.shift();
             pageStorage.setItem('autoBlockQueue', JSON.stringify(users));
             pageStorage.setItem('autoBlock', JSON.stringify(nextUser));
-            updateStatus(`Queue: ${users.length} users remaining`, 'info');
+            const left = remainingBlockCount(users, nextUser);
+            updateStatus('Queue: ' + left + ' left', 'info');
+            refreshQueueControls();
             checkForPostNavigationTask();
         } else {
             console.log('✅ No more users in the queue.');
             updateStatus('Process complete!', 'success');
             pageStorage.removeItem('autoBlockQueue');
             pageStorage.removeItem('autoBlock');
+            pageStorage.removeItem('autoBlockPaused');
+            refreshQueueControls();
         }
     }
 
@@ -939,6 +1039,11 @@
   background: #f8fafc;
   border-color: #94a3b8;
 }
+#tiktok-autoblocker-card .ttab-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 #tiktok-autoblocker-card .ttab-file { display: block; }
 #tiktok-autoblocker-card .ttab-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 #tiktok-autoblocker-card .ttab-file-label {
@@ -1092,6 +1197,38 @@
             primarySection.appendChild(makeButton('Add current user', addUserToBlockList, 'primary'));
             body.appendChild(primarySection);
 
+            const queueSection = document.createElement('div');
+            queueSection.className = 'ttab-section';
+            const queueLabel = document.createElement('p');
+            queueLabel.className = 'ttab-label';
+            queueLabel.textContent = 'Queue';
+            queueSection.appendChild(queueLabel);
+            const queueStatus = document.createElement('p');
+            queueStatus.id = 'ttab-queue-status';
+            queueStatus.className = 'ttab-label';
+            queueStatus.style.textTransform = 'none';
+            queueStatus.style.letterSpacing = '0';
+            queueStatus.style.fontWeight = '500';
+            queueStatus.style.margin = '0 0 6px';
+            queueStatus.textContent = 'No active run';
+            queueSection.appendChild(queueStatus);
+            const queueRow = document.createElement('div');
+            queueRow.className = 'ttab-stack';
+            queueRow.style.flexDirection = 'row';
+            queueRow.style.gap = '6px';
+            const pauseBtn = makeButton('Pause', pauseBlockQueue, 'secondary');
+            pauseBtn.id = 'ttab-pause-queue';
+            pauseBtn.style.flex = '1';
+            pauseBtn.disabled = true;
+            const resumeBtn = makeButton('Resume', resumeBlockQueue, 'secondary');
+            resumeBtn.id = 'ttab-resume-queue';
+            resumeBtn.style.flex = '1';
+            resumeBtn.disabled = true;
+            queueRow.appendChild(pauseBtn);
+            queueRow.appendChild(resumeBtn);
+            queueSection.appendChild(queueRow);
+            body.appendChild(queueSection);
+
             const listSection = document.createElement('div');
             listSection.className = 'ttab-section';
             const listLabel = document.createElement('p');
@@ -1113,10 +1250,11 @@
 
             const footer = document.createElement('div');
             footer.className = 'ttab-footer';
-            footer.innerHTML = '<strong>v0.7.1</strong><span>.txt upload</span>';
+            footer.innerHTML = '<strong>v0.8.0</strong><span>.txt upload</span>';
             body.appendChild(footer);
 
             refreshPanelStats();
+            refreshQueueControls();
         } catch (error) {
             console.error('Error creating AutoBlocker UI:', error);
         }
@@ -1186,6 +1324,7 @@
         }
 
         refreshPanelStats();
+        refreshQueueControls();
     }
 
     async function handleFileUpload(event) {
@@ -1194,7 +1333,9 @@
         const text = await file.text();
         const usernames = text.split(/\r?\n/).filter(u => u.trim() !== '').map(username => ({username: username.trim(), action: 'block'}));
         pageStorage.setItem('autoBlockQueue', JSON.stringify(usernames));
+        pageStorage.removeItem('autoBlockPaused');
         updateStatus('Loaded ' + usernames.length + ' usernames for blocking', 'info');
+        refreshQueueControls();
         handleNextUser();
     }
 
