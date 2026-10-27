@@ -843,8 +843,14 @@ const BLOCK_MENU_OPTION_SELECTORS = [
     'div[role="button"][aria-label="Block"]',
     '[role="button"][aria-label="Block"]',
     '[aria-label="Block"]',
+    'div[role="button"][aria-label="Bloquer"]',
+    '[aria-label="Bloquer"]',
     '[data-e2e="block-option"]'
 ];
+// Menu labels, compared in lower case. TikTok translates them with the UI language,
+// so a missing language means the Block item is never found: add its labels here.
+const BLOCK_LABELS = ['block', 'bloquer'];
+const UNBLOCK_LABELS = ['unblock', 'unblock user', 'débloquer'];
 function isShown(el) {
     if (!el || !el.isConnected) return false;
     const style = window.getComputedStyle(el);
@@ -853,15 +859,15 @@ function isShown(el) {
     return rect.width > 0 && rect.height > 0;
 }
 
-/** Visible menu row whose label is exactly `label` (for example "block" or "unblock"). */
-function findShownMenuItem(label) {
-    const want = String(label || '').trim().toLowerCase();
+/** Visible menu row whose label is exactly one of `labels` (for example BLOCK_LABELS). */
+function findShownMenuItem(labels) {
+    const wanted = [].concat(labels).map(function (l) { return String(l || '').trim().toLowerCase(); });
     const nodes = document.querySelectorAll('button, [role="button"]');
     for (let i = 0; i < nodes.length; i++) {
         const el = nodes[i];
         const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
         const text = (el.innerText || '').trim().toLowerCase();
-        if (aria !== want && text !== want) continue;
+        if (wanted.indexOf(aria) === -1 && wanted.indexOf(text) === -1) continue;
         if (!isShown(el)) continue;
         return el;
     }
@@ -870,7 +876,7 @@ function findShownMenuItem(label) {
 
 /** Fallback: find a visible Block menu item by its own text, not a parent that also contains Report. */
 function findBlockOptionByText() {
-    return findShownMenuItem('block');
+    return findShownMenuItem(BLOCK_LABELS);
 }
 const CONFIRM_BLOCK_BUTTON_SELECTORS = [
     'button[data-e2e="block-popup-block-btn"]',
@@ -990,7 +996,7 @@ function findConfirmBlockByText() {
         const buttons = dialogs[i].querySelectorAll('button, [role="button"]');
         for (let j = 0; j < buttons.length; j++) {
             const b = buttons[j];
-            if (b.textContent && b.textContent.trim().toLowerCase() === 'block') return b;
+            if (b.textContent && BLOCK_LABELS.indexOf(b.textContent.trim().toLowerCase()) !== -1) return b;
         }
     }
     return null;
@@ -1019,7 +1025,7 @@ function findBlockInReportMenu() {
     for (let i = 0; i < nodes.length; i++) {
         const aria = (nodes[i].getAttribute('aria-label') || '').trim().toLowerCase();
         const text = (nodes[i].innerText || '').trim().toLowerCase();
-        if ((aria === 'block' || text === 'block') && isShown(nodes[i])) return nodes[i];
+        if ((BLOCK_LABELS.indexOf(aria) !== -1 || BLOCK_LABELS.indexOf(text) !== -1) && isShown(nodes[i])) return nodes[i];
     }
     return null;
 }
@@ -1028,13 +1034,13 @@ function waitForMenuAction(timeout) {
     return new Promise(function (resolve) {
         const end = Date.now() + timeout;
         const timer = setInterval(function () {
-            const unblock = findShownMenuItem('unblock') || findShownMenuItem('unblock user');
+            const unblock = findShownMenuItem(UNBLOCK_LABELS);
             if (unblock) {
                 clearInterval(timer);
                 resolve({ type: 'unblock', element: unblock });
                 return;
             }
-            const block = findShownMenuItem('block') || findBlockInReportMenu();
+            const block = findShownMenuItem(BLOCK_LABELS) || findBlockInReportMenu();
             if (block) {
                 clearInterval(timer);
                 resolve({ type: 'block', element: block });
@@ -1294,7 +1300,7 @@ function mergeUsernamesIntoBlockList(usernames, done) {
  * @returns {Promise<boolean>} True if the user is already blocked
  */
 async function checkIfAlreadyBlocked() {
-    return !!(findShownMenuItem('unblock') || findShownMenuItem('unblock user'));
+    return !!findShownMenuItem(UNBLOCK_LABELS);
 }
 
 // Add a specific username to blocklist (for use in automation)

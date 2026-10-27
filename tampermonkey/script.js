@@ -608,7 +608,10 @@
     const DEFAULT_BLOCK_SELECTORS = [
         'div[role="button"][aria-label="Block"]',
         '[role="button"][aria-label="Block"]',
-        '[aria-label="Block"]'
+        '[aria-label="Block"]',
+        // TikTok translates the menu with the UI language
+        'div[role="button"][aria-label="Bloquer"]',
+        '[aria-label="Bloquer"]'
     ];
     const DEFAULT_CONFIRM_SELECTORS = [
         'button[data-e2e="block-popup-block-btn"]',
