@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check
+        run: |
+          node --check chrome-extension/background.js
+          node --check chrome-extension/content.js
+          node --check chrome-extension/page-world.js
+          node --check chrome-extension/popup.js
+          node --check tampermonkey/script.js
+
+      - name: Version lockstep
+        run: node .github/scripts/check-versions.js
+
+      - name: Manifest sanity
+        run: |
+          node -e "
+          const m = require('./chrome-extension/manifest.json');
+          if (m.manifest_version !== 3) throw new Error('manifest_version must be 3');
+          for (const key of ['name', 'version', 'description', 'permissions', 'host_permissions', 'content_scripts', 'action', 'background']) {
+            if (m[key] == null) throw new Error('missing manifest key: ' + key);
+          }
+          console.log('manifest ok', m.name, m.version);
+          "
