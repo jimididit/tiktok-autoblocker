@@ -8,7 +8,7 @@
 
 A powerful tool for mass blocking TikTok users with support for both Chrome extensions and Tampermonkey scripts. Features enhanced private account detection, real-time status updates, and robust error handling. **Now Available on Chrome Web Store!!**
 
-## 🚀 Features
+## Features
 
 ### Core Functionality
 
@@ -31,7 +31,7 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 - **Page selectors**: If TikTok redesigns Actions / Block / Confirm, use Pick in Advanced to point at the new controls (no code edit)
 - **Cross-browser Compatibility**: Tampermonkey version works in Chrome, Firefox, Safari, Edge, and more
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 tiktok-autoblocker/
@@ -51,7 +51,7 @@ tiktok-autoblocker/
 └── test-blocklist.txt      # Sample blocklist for testing
 ```
 
-## 🛠️ Installation Options
+## Installation Options
 
 ### Option 1: Chrome Extension (Recommended)
 
@@ -131,7 +131,7 @@ Once Tampermonkey is installed, follow these steps:
    - Press `Ctrl + S` (or `Cmd + S` on Mac) to save the script
    - The script should now be enabled and ready to use
 
-## 📥 Getting Your Existing Blocked List from TikTok
+## Getting Your Existing Blocked List from TikTok
 
 If you already have many blocked accounts on TikTok (e.g. 1500+) and want to use that list in the extension (e.g. to block the same people on another account), you have two options:
 
@@ -139,7 +139,7 @@ If you already have many blocked accounts on TikTok (e.g. 1500+) and want to use
 
 TikTok’s **full data archive** can include a **Block List** (date + username). To get it:
 
-1. In the **TikTok app**: Profile → **Menu (☰)** → **Settings and privacy** → **Account** → **Download your data**.
+1. In the **TikTok app**: Profile → **Menu ()** → **Settings and privacy** → **Account** → **Download your data**.
 2. Request your data and choose the **full archive** (or ensure “Block list” / blocked accounts are included if TikTok lets you pick categories).
 3. When TikTok emails you (often within a few days), download the ZIP they provide.
 4. Open the ZIP and look for a file related to **Block list** or **blocked accounts** (e.g. `Block list.txt`, `blocked_accounts.json`, or similar - names may vary by region/version).
@@ -160,7 +160,7 @@ That button appends the usernames from TikTok's Blocked accounts page. Names you
 
 ---
 
-## 📋 Usage
+## Usage
 
 ### File Format
 
@@ -247,13 +247,13 @@ Your blocklist text file should contain usernames, one per line:
 3. **Monitor progress**: Watch real-time status updates
 4. **Download results**: Save your blocklist for future use
 
-## 🔌 Compatibility
+## Compatibility
 
 - **TikTok web**: Built for TikTok’s website (`*.tiktok.com`). Blocking uses on-page controls (Actions, Block, Confirm). If TikTok changes those controls, you can usually fix it yourself with **Page selectors** (see below) without waiting for a new release.
 - **Current status**: Checked against TikTok web in 2026. If built-in matching still fails after updating Page selectors, [open an issue](https://github.com/jimididit/tiktok-autoblocker/issues) with your region, TikTok UI language, and what you see on the profile.
 - **Chrome**: Manifest V3; requires Chrome (or a Chromium-based browser that supports the same extension APIs).
 
-## 🔧 Technical Details
+## Technical Details
 
 ### Architecture
 
@@ -329,7 +329,7 @@ Both versions handle various TikTok URL formats:
 - `/user/username` (alternative format)
 - Fallback for any TikTok page
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Chrome Extension Issues
 
@@ -403,7 +403,7 @@ If you're still having issues:
 3. Try the debug features to analyze page structure
 4. Open an issue on the GitHub repository with detailed information
 
-## 📈 Version History
+## Version History
 
 ### v0.9.0
 
@@ -435,55 +435,55 @@ If you're still having issues:
 
 ### v0.6.0
 
-- ✅ **Getting your blocked list from TikTok**: Docs and popup help for using TikTok “Download your data” to export your block list and use it in the extension.
-- ✅ **JSON import**: Upload TikTok-style data export files (e.g. block list JSON) in addition to .txt.
-- ✅ **Compatibility**: Documented TikTok web compatibility and what to do if the site changes.
+- **Getting your blocked list from TikTok**: Docs and popup help for using TikTok “Download your data” to export your block list and use it in the extension.
+- **JSON import**: Upload TikTok-style data export files (e.g. block list JSON) in addition to .txt.
+- **Compatibility**: Documented TikTok web compatibility and what to do if the site changes.
 
 ### v0.3.0
 
-- ✅ Enhanced private account detection
-- ✅ Improved 3-step blocking sequence
-- ✅ Better error handling and accessibility checks
-- ✅ Multiple URL pattern support
-- ✅ Comprehensive logging and debugging
-- ✅ Robust queue management
-- ✅ Real-time status updates
-- ✅ @N/A username protection to prevent infinite refresh loops
-- ✅ Updated block button selectors for improved reliability
+- Enhanced private account detection
+- Improved 3-step blocking sequence
+- Better error handling and accessibility checks
+- Multiple URL pattern support
+- Comprehensive logging and debugging
+- Robust queue management
+- Real-time status updates
+- @N/A username protection to prevent infinite refresh loops
+- Updated block button selectors for improved reliability
 
 ### v0.2.0
 
-- ✅ Private account support
-- ✅ Real-time status updates
-- ✅ Enhanced error handling
-- ✅ Modern UI design
+- Private account support
+- Real-time status updates
+- Enhanced error handling
+- Modern UI design
 
 ### v0.1.0
 
-- ✅ Basic blocking functionality
-- ✅ File upload/download
-- ✅ Simple UI
+- Basic blocking functionality
+- File upload/download
+- Simple UI
 
-## 🔒 Security & Privacy
+## Security & Privacy
 
 - **Local Storage**: All data is stored locally in your browser
 - **No External Servers**: Neither version sends data to any external servers
 - **Open Source**: Full source code is available for review
 - **Privacy Focused**: No tracking or data collection
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
-## ⚠️ Disclaimer
+## Disclaimer
 
 This tool is intended for personal use and should be used responsibly. The creators are not responsible for any misuse or consequences arising from the use of this tool. Please respect TikTok's terms of service and use this tool ethically.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
 
-## 📞 Support
+## Support
 
 For support, please:
 

@@ -26,9 +26,9 @@
     const blockListKey = 'tiktokBlockList';
     const selectorStorageKey = 'tiktokBlockSelectors';
     console.log('Running Enhanced TikTok AutoBlocker Script v0.3');
-    console.log('📍 Current URL:', window.location.href);
-    console.log('📍 Page title:', document.title);
-    console.log('📍 Script loaded at:', new Date().toISOString());
+    console.log('Current URL:', window.location.href);
+    console.log('Page title:', document.title);
+    console.log('Script loaded at:', new Date().toISOString());
 
     try {
         checkForPostNavigationTask();
@@ -326,8 +326,8 @@
 
             // Check for specific "User not found" or "Account not found" text
             const pageText = document.body.textContent.toLowerCase();
-            console.log('🔍 Checking page text for account not found indicators...');
-            console.log('📄 Page text sample (first 500 chars):', pageText.substring(0, 500));
+            console.log('Checking page text for account not found indicators...');
+            console.log('Page text sample (first 500 chars):', pageText.substring(0, 500));
             
             // Look for specific error messages that indicate account not found
             const notFoundTexts = [
@@ -348,7 +348,7 @@
                 const containerText = container.textContent.toLowerCase();
                 for (const text of notFoundTexts) {
                     if (containerText.includes(text)) {
-                        console.info(`❌ Account not found text found in error container: "${text}"`);
+                        console.info(`Account not found text found in error container: "${text}"`);
                         foundNotFoundText = true;
                         break;
                     }
@@ -362,7 +362,7 @@
                 const pageTitle = document.title.toLowerCase();
                 for (const text of notFoundTexts) {
                     if (pageTitle.includes(text)) {
-                        console.info(`❌ Account not found text found in page title: "${text}"`);
+                        console.info(`Account not found text found in page title: "${text}"`);
                         foundNotFoundText = true;
                         break;
                     }
@@ -374,7 +374,7 @@
                     const mainText = mainContent.textContent.toLowerCase();
                     for (const text of notFoundTexts) {
                         if (mainText.includes(text)) {
-                            console.info(`❌ Account not found text found in main content: "${text}"`);
+                            console.info(`Account not found text found in main content: "${text}"`);
                             foundNotFoundText = true;
                             break;
                         }
@@ -437,62 +437,62 @@
      * Handle blocking for private accounts
      */
     async function handlePrivateAccountBlocking() {
-        console.log('🔒 Starting private account blocking process...');
+        console.log('Starting private account blocking process...');
         try {
             // Step 1: Find and click the "More" button (3 dots)
-            console.log('🔍 Step 1: Looking for more options button...');
+            console.log('Step 1: Looking for more options button...');
             const selectorLists = readSelectorLists();
             const moreButton = await waitForAnyElement(selectorLists.more, 5000);
             if (!moreButton) {
-                console.warn('❌ Could not find more options button');
+                console.warn('Could not find more options button');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 1: Found more options button:', moreButton);
-            console.log('🖱️ Step 1: Clicking more options button...');
+            console.log('Step 1: Found more options button:', moreButton);
+            console.log('Step 1: Clicking more options button...');
             simulateMouseEvent(moreButton, 'click');
-            console.log('⏳ Step 1: Waiting after click...');
+            console.log('Step 1: Waiting after click...');
             await new Promise(resolve => setTimeout(resolve, 1500));
-            console.log('✅ Step 1: Wait complete');
+            console.log('Step 1: Wait complete');
 
             // Step 2: Find and click the "Block" option in the popover
-            console.log('🔍 Step 2: Looking for block option in popover...');
+            console.log('Step 2: Looking for block option in popover...');
             let blockOption = await waitForAnyElement(selectorLists.block, 3000);
             if (!blockOption) blockOption = findShownMenuItem(BLOCK_LABELS);
             if (!blockOption) {
-                console.warn('❌ Could not find block option in popover');
+                console.warn('Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 2: Found block option:', blockOption);
-            console.log('🖱️ Step 2: Clicking block option in popover...');
+            console.log('Step 2: Found block option:', blockOption);
+            console.log('Step 2: Clicking block option in popover...');
             simulateMouseEvent(blockOption, 'click');
-            console.log('⏳ Step 2: Waiting after click...');
+            console.log('Step 2: Waiting after click...');
             await new Promise(resolve => setTimeout(resolve, 1500));
-            console.log('✅ Step 2: Wait complete');
+            console.log('Step 2: Wait complete');
 
             // Step 3: Find and click the "Block" button in the confirmation modal
-            console.log('🔍 Step 3: Looking for confirm button in modal...');
+            console.log('Step 3: Looking for confirm button in modal...');
             const confirmButton = await waitForAnyElement(selectorLists.confirm, 3000);
             if (!confirmButton) {
-                console.warn('❌ Could not find confirm button in modal');
+                console.warn('Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 3: Found confirm button:', confirmButton);
-            console.log('🖱️ Step 3: Clicking block button in modal...');
+            console.log('Step 3: Found confirm button:', confirmButton);
+            console.log('Step 3: Clicking block button in modal...');
             simulateMouseEvent(confirmButton, 'click');
-            console.log('✅ Block confirmed successfully!');
+            console.log('Block confirmed successfully!');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
         } catch (error) {
-            console.error('❌ Error handling private account blocking:', error);
+            console.error('Error handling private account blocking:', error);
             // Add to block list as fallback
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
@@ -503,62 +503,62 @@
      * Handle blocking for public accounts (original method)
      */
     async function handlePublicAccountBlocking() {
-        console.log('🌐 Starting public account blocking process...');
+        console.log('Starting public account blocking process...');
         try {
             // Step 1: Find and click the "More" button (3 dots)
-            console.log('🔍 Step 1: Looking for more options button...');
+            console.log('Step 1: Looking for more options button...');
             const selectorLists = readSelectorLists();
             const moreButton = await waitForAnyElement(selectorLists.more, 5000);
             if (!moreButton) {
-                console.warn('❌ Could not find more options button');
+                console.warn('Could not find more options button');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 1: Found more options button:', moreButton);
-            console.log('🖱️ Step 1: Clicking more options button...');
+            console.log('Step 1: Found more options button:', moreButton);
+            console.log('Step 1: Clicking more options button...');
             simulateMouseEvent(moreButton, 'click');
-            console.log('⏳ Step 1: Waiting after click...');
+            console.log('Step 1: Waiting after click...');
             await new Promise(resolve => setTimeout(resolve, 1500));
-            console.log('✅ Step 1: Wait complete');
+            console.log('Step 1: Wait complete');
 
             // Step 2: Find and click the "Block" option in the popover
-            console.log('🔍 Step 2: Looking for block option in popover...');
+            console.log('Step 2: Looking for block option in popover...');
             let blockOption = await waitForAnyElement(selectorLists.block, 3000);
             if (!blockOption) blockOption = findShownMenuItem(BLOCK_LABELS);
             if (!blockOption) {
-                console.warn('❌ Could not find block option in popover');
+                console.warn('Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 2: Found block option:', blockOption);
-            console.log('🖱️ Step 2: Clicking block option in popover...');
+            console.log('Step 2: Found block option:', blockOption);
+            console.log('Step 2: Clicking block option in popover...');
             simulateMouseEvent(blockOption, 'click');
-            console.log('⏳ Step 2: Waiting after click...');
+            console.log('Step 2: Waiting after click...');
             await new Promise(resolve => setTimeout(resolve, 1500));
-            console.log('✅ Step 2: Wait complete');
+            console.log('Step 2: Wait complete');
 
             // Step 3: Find and click the "Block" button in the confirmation modal
-            console.log('🔍 Step 3: Looking for confirm button in modal...');
+            console.log('Step 3: Looking for confirm button in modal...');
             const confirmButton = await waitForAnyElement(selectorLists.confirm, 3000);
             if (!confirmButton) {
-                console.warn('❌ Could not find confirm button in modal');
+                console.warn('Could not find confirm button in modal');
                 const username = window.location.pathname.split('/')[1];
                 addUsernameToBlockList(username);
                 return;
             }
 
-            console.log('✅ Step 3: Found confirm button:', confirmButton);
-            console.log('🖱️ Step 3: Clicking block button in modal...');
+            console.log('Step 3: Found confirm button:', confirmButton);
+            console.log('Step 3: Clicking block button in modal...');
             simulateMouseEvent(confirmButton, 'click');
-            console.log('✅ Block confirmed successfully!');
+            console.log('Block confirmed successfully!');
             await new Promise(resolve => setTimeout(resolve, 1000));
 
         } catch (error) {
-            console.error('❌ Error handling public account blocking:', error);
+            console.error('Error handling public account blocking:', error);
             // Add to block list as fallback
             const username = window.location.pathname.split('/')[1];
             addUsernameToBlockList(username);
@@ -586,7 +586,7 @@
             refreshQueueControls();
             checkForPostNavigationTask();
         } else {
-            console.log('✅ No more users in the queue.');
+            console.log('No more users in the queue.');
             updateStatus('Process complete!', 'success');
             pageStorage.removeItem('autoBlockQueue');
             pageStorage.removeItem('autoBlock');
@@ -1638,36 +1638,36 @@
     
     // Initialize immediately if DOM is ready
     if (document.readyState === 'loading') {
-        console.log('⏳ DOM still loading, waiting for DOMContentLoaded...');
+        console.log('DOM still loading, waiting for DOMContentLoaded...');
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOMContentLoaded fired, initializing UI...');
+            console.log('DOMContentLoaded fired, initializing UI...');
             initializeUI();
         });
     } else {
-        console.log('✅ DOM already ready, initializing UI immediately...');
+        console.log('DOM already ready, initializing UI immediately...');
         initializeUI();
     }
     
     // Also try to initialize after a longer delay as fallback
     setTimeout(() => {
-        console.log('🔄 Fallback UI initialization attempt 1...');
+        console.log('Fallback UI initialization attempt 1...');
         initializeUI();
     }, 3000);
     
     // Additional fallback attempts
     setTimeout(() => {
-        console.log('🔄 Fallback UI initialization attempt 2...');
+        console.log('Fallback UI initialization attempt 2...');
         initializeUI();
     }, 5000);
     
     setTimeout(() => {
-        console.log('🔄 Fallback UI initialization attempt 3...');
+        console.log('Fallback UI initialization attempt 3...');
         initializeUI();
     }, 10000);
     
     // Listen for page load completion
     window.addEventListener('load', function() {
-        console.log('✅ Window load event fired, attempting UI initialization...');
+        console.log('Window load event fired, attempting UI initialization...');
         setTimeout(() => {
             initializeUI();
         }, 1000);
