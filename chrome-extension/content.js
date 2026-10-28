@@ -839,12 +839,53 @@ const MORE_BUTTON_SELECTORS = [
     'button[aria-label="More options"]',
     '[aria-label="More options"]'
 ];
-const BLOCK_MENU_OPTION_SELECTORS = [
-    'div[role="button"][aria-label="Block"]',
-    '[role="button"][aria-label="Block"]',
-    '[aria-label="Block"]',
-    '[data-e2e="block-option"]'
+// TikTok translates Block/Unblock with the UI language (no data-e2e on the menu row).
+// Add a locale's exact aria/text label here when someone hits a miss. Compared case-insensitively.
+const BLOCK_LABELS = [
+    'Block', 'Bloquer', 'Bloquear', 'Blockieren', 'Blocca', 'Blokkeer',
+    'Zablokuj', 'Blokir', 'Chặn', 'Engelle', 'ブロック', '차단', '屏蔽', '加入黑名單', '加入黑名单',
+    'حظر', 'บล็อก', 'Блокировать', 'Заблокировать'
 ];
+const UNBLOCK_LABELS = [
+    'Unblock', 'Unblock user', 'Débloquer', 'Desbloquear', 'Entblocken', 'Blockierung aufheben',
+    'Sblocca', 'Deblokkeer', 'Odblokuj', 'Buka blokir', 'Bỏ chặn', 'Engeli kaldır',
+    'ブロックを解除', '차단 해제', '取消屏蔽', '移出黑名單', '移出黑名单',
+    'إلغاء الحظر', 'เลิกบล็อก', 'Разблокировать'
+];
+
+function normalizeMenuLabel(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function labelListHas(labels, value) {
+    const want = normalizeMenuLabel(value);
+    if (!want) return false;
+    for (let i = 0; i < labels.length; i++) {
+        if (normalizeMenuLabel(labels[i]) === want) return true;
+    }
+    return false;
+}
+
+function ariaSelectorsForLabels(labels) {
+    const selectors = [];
+    const seen = {};
+    for (let i = 0; i < labels.length; i++) {
+        const label = String(labels[i] || '').trim();
+        if (!label || seen[label]) continue;
+        seen[label] = true;
+        const escaped = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        selectors.push('div[role="button"][aria-label="' + escaped + '"]');
+        selectors.push('[role="button"][aria-label="' + escaped + '"]');
+        selectors.push('[aria-label="' + escaped + '"]');
+    }
+    return selectors;
+}
+
+const BLOCK_MENU_OPTION_SELECTORS = ariaSelectorsForLabels(BLOCK_LABELS).concat([
+    '[data-e2e="block-option"]'
+]);
+const UNBLOCK_MENU_OPTION_SELECTORS = ariaSelectorsForLabels(UNBLOCK_LABELS);
+
 function isShown(el) {
     if (!el || !el.isConnected) return false;
     const style = window.getComputedStyle(el);
@@ -853,24 +894,39 @@ function isShown(el) {
     return rect.width > 0 && rect.height > 0;
 }
 
-/** Visible menu row whose label is exactly `label` (for example "block" or "unblock"). */
-function findShownMenuItem(label) {
-    const want = String(label || '').trim().toLowerCase();
+/** Visible menu row whose label matches one of `labels` (string or array). */
+function findShownMenuItem(labels) {
+    const wanted = [].concat(labels);
     const nodes = document.querySelectorAll('button, [role="button"]');
     for (let i = 0; i < nodes.length; i++) {
         const el = nodes[i];
-        const aria = (el.getAttribute('aria-label') || '').trim().toLowerCase();
-        const text = (el.innerText || '').trim().toLowerCase();
-        if (aria !== want && text !== want) continue;
+        const aria = el.getAttribute('aria-label') || '';
+        const text = el.innerText || '';
+        if (!labelListHas(wanted, aria) && !labelListHas(wanted, text)) continue;
         if (!isShown(el)) continue;
         return el;
     }
     return null;
 }
 
+function findShownElementBySelectors(selectors) {
+    if (!selectors || !selectors.length) return null;
+    for (let i = 0; i < selectors.length; i++) {
+        try {
+            const nodes = document.querySelectorAll(selectors[i]);
+            for (let j = 0; j < nodes.length; j++) {
+                if (isShown(nodes[j])) return nodes[j];
+            }
+        } catch (error) {
+            console.warn('Invalid selector:', selectors[i], error);
+        }
+    }
+    return null;
+}
+
 /** Fallback: find a visible Block menu item by its own text, not a parent that also contains Report. */
 function findBlockOptionByText() {
-    return findShownMenuItem('block');
+    return findShownMenuItem(BLOCK_LABELS);
 }
 const CONFIRM_BLOCK_BUTTON_SELECTORS = [
     'button[data-e2e="block-popup-block-btn"]',
@@ -990,7 +1046,7 @@ function findConfirmBlockByText() {
         const buttons = dialogs[i].querySelectorAll('button, [role="button"]');
         for (let j = 0; j < buttons.length; j++) {
             const b = buttons[j];
-            if (b.textContent && b.textContent.trim().toLowerCase() === 'block') return b;
+            if (b.textContent && labelListHas(BLOCK_LABELS, b.textContent)) return b;
         }
     }
     return null;
@@ -1017,24 +1073,33 @@ function findBlockInReportMenu() {
     if (!root) return null;
     const nodes = root.querySelectorAll('button, [role="button"]');
     for (let i = 0; i < nodes.length; i++) {
-        const aria = (nodes[i].getAttribute('aria-label') || '').trim().toLowerCase();
-        const text = (nodes[i].innerText || '').trim().toLowerCase();
-        if ((aria === 'block' || text === 'block') && isShown(nodes[i])) return nodes[i];
+        const aria = nodes[i].getAttribute('aria-label') || '';
+        const text = nodes[i].innerText || '';
+        if ((labelListHas(BLOCK_LABELS, aria) || labelListHas(BLOCK_LABELS, text)) && isShown(nodes[i])) {
+            return nodes[i];
+        }
     }
     return null;
 }
 
-function waitForMenuAction(timeout) {
+/**
+ * Wait for Block or Unblock in the open Actions menu.
+ * Order: custom/default CSS selectors (Advanced menu), then multi-locale labels.
+ */
+function waitForMenuAction(timeout, blockSelectors) {
     return new Promise(function (resolve) {
         const end = Date.now() + timeout;
         const timer = setInterval(function () {
-            const unblock = findShownMenuItem('unblock') || findShownMenuItem('unblock user');
+            const unblock = findShownMenuItem(UNBLOCK_LABELS)
+                || findShownElementBySelectors(UNBLOCK_MENU_OPTION_SELECTORS);
             if (unblock) {
                 clearInterval(timer);
                 resolve({ type: 'unblock', element: unblock });
                 return;
             }
-            const block = findShownMenuItem('block') || findBlockInReportMenu();
+            const block = findShownElementBySelectors(blockSelectors)
+                || findShownMenuItem(BLOCK_LABELS)
+                || findBlockInReportMenu();
             if (block) {
                 clearInterval(timer);
                 resolve({ type: 'block', element: block });
@@ -1063,6 +1128,7 @@ function profileMenuIsOpen() {
 }
 
 async function openActionsAndFindBlock(moreButton) {
+    const selectorLists = await getSelectorLists();
     for (let attempt = 0; attempt < 4; attempt++) {
         if (!profileMenuIsOpen()) {
             const current = currentActionsButton(moreButton);
@@ -1075,7 +1141,7 @@ async function openActionsAndFindBlock(moreButton) {
             } catch (error) {}
             simulateMouseEvent(current, 'click');
         }
-        const action = await waitForMenuAction(2000);
+        const action = await waitForMenuAction(2000, selectorLists.block);
         if (action) return action;
     }
     return null;
@@ -1294,7 +1360,7 @@ function mergeUsernamesIntoBlockList(usernames, done) {
  * @returns {Promise<boolean>} True if the user is already blocked
  */
 async function checkIfAlreadyBlocked() {
-    return !!(findShownMenuItem('unblock') || findShownMenuItem('unblock user'));
+    return !!findShownMenuItem(UNBLOCK_LABELS);
 }
 
 // Add a specific username to blocklist (for use in automation)

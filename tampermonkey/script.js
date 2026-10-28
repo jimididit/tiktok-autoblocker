@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         tiktok-autoblocker
 // @namespace    http://tampermonkey.net/
-// @version      0.8.0
+// @version      0.9.0
 // @description  Collect TikTok usernames to block and download them as a .txt file. Enhanced with private account support and improved blocking sequence.
 // @author       jimididit
 // @match        https://www.tiktok.com/*
@@ -459,7 +459,8 @@
 
             // Step 2: Find and click the "Block" option in the popover
             console.log('🔍 Step 2: Looking for block option in popover...');
-            const blockOption = await waitForAnyElement(selectorLists.block, 3000);
+            let blockOption = await waitForAnyElement(selectorLists.block, 3000);
+            if (!blockOption) blockOption = findShownMenuItem(BLOCK_LABELS);
             if (!blockOption) {
                 console.warn('❌ Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
@@ -524,7 +525,8 @@
 
             // Step 2: Find and click the "Block" option in the popover
             console.log('🔍 Step 2: Looking for block option in popover...');
-            const blockOption = await waitForAnyElement(selectorLists.block, 3000);
+            let blockOption = await waitForAnyElement(selectorLists.block, 3000);
+            if (!blockOption) blockOption = findShownMenuItem(BLOCK_LABELS);
             if (!blockOption) {
                 console.warn('❌ Could not find block option in popover');
                 const username = window.location.pathname.split('/')[1];
@@ -605,11 +607,71 @@
         'button[aria-label="Actions"]',
         'button[aria-label="More options"]'
     ];
-    const DEFAULT_BLOCK_SELECTORS = [
-        'div[role="button"][aria-label="Block"]',
-        '[role="button"][aria-label="Block"]',
-        '[aria-label="Block"]'
+    // TikTok translates Block with the UI language. Add a locale's exact label when someone hits a miss.
+    const BLOCK_LABELS = [
+        'Block', 'Bloquer', 'Bloquear', 'Blockieren', 'Blocca', 'Blokkeer',
+        'Zablokuj', 'Blokir', 'Chặn', 'Engelle', 'ブロック', '차단', '屏蔽', '加入黑名單', '加入黑名单',
+        'حظر', 'บล็อก', 'Блокировать', 'Заблокировать'
     ];
+    const UNBLOCK_LABELS = [
+        'Unblock', 'Unblock user', 'Débloquer', 'Desbloquear', 'Entblocken', 'Blockierung aufheben',
+        'Sblocca', 'Deblokkeer', 'Odblokuj', 'Buka blokir', 'Bỏ chặn', 'Engeli kaldır',
+        'ブロックを解除', '차단 해제', '取消屏蔽', '移出黑名單', '移出黑名单',
+        'إلغاء الحظر', 'เลิกบล็อก', 'Разблокировать'
+    ];
+
+    function normalizeMenuLabel(value) {
+        return String(value || '').trim().toLowerCase();
+    }
+
+    function labelListHas(labels, value) {
+        const want = normalizeMenuLabel(value);
+        if (!want) return false;
+        for (let i = 0; i < labels.length; i++) {
+            if (normalizeMenuLabel(labels[i]) === want) return true;
+        }
+        return false;
+    }
+
+    function ariaSelectorsForLabels(labels) {
+        const selectors = [];
+        const seen = {};
+        for (let i = 0; i < labels.length; i++) {
+            const label = String(labels[i] || '').trim();
+            if (!label || seen[label]) continue;
+            seen[label] = true;
+            const escaped = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            selectors.push('div[role="button"][aria-label="' + escaped + '"]');
+            selectors.push('[role="button"][aria-label="' + escaped + '"]');
+            selectors.push('[aria-label="' + escaped + '"]');
+        }
+        return selectors;
+    }
+
+    const DEFAULT_BLOCK_SELECTORS = ariaSelectorsForLabels(BLOCK_LABELS);
+
+    function isShown(el) {
+        if (!el || !el.isConnected) return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function findShownMenuItem(labels) {
+        const wanted = [].concat(labels);
+        const nodes = document.querySelectorAll('button, [role="button"]');
+        for (let i = 0; i < nodes.length; i++) {
+            const el = nodes[i];
+            const aria = el.getAttribute('aria-label') || '';
+            const text = el.innerText || '';
+            if (!labelListHas(wanted, aria) && !labelListHas(wanted, text)) continue;
+            if (!isShown(el)) continue;
+            return el;
+        }
+        return null;
+    }
+
     const DEFAULT_CONFIRM_SELECTORS = [
         'button[data-e2e="block-popup-block-btn"]',
         'button[class*="StyledButtonBlock"]',
@@ -1250,7 +1312,7 @@
 
             const footer = document.createElement('div');
             footer.className = 'ttab-footer';
-            footer.innerHTML = '<strong>v0.8.0</strong><span>.txt upload</span>';
+            footer.innerHTML = '<strong>v0.9.0</strong><span>.txt upload</span>';
             body.appendChild(footer);
 
             refreshPanelStats();

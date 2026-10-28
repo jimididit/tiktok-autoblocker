@@ -1,6 +1,6 @@
 # TikTok AutoBlocker
 
-![Version 0.8.0](https://img.shields.io/badge/version-0.8.0-ff4757)
+![Version 0.8.0](https://img.shields.io/badge/version-0.9.0-ff4757)
 
 <p>
   <img src="assets/extension-screenshot.jpg" width="100%" alt="Extension screenshot">
@@ -27,6 +27,7 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 - **Comprehensive Logging**: Detailed console output for debugging and monitoring
 - **Queue Management**: Robust task queue system for processing large lists
 - **Pause / Resume**: Stop after the current profile; remaining count on the extension badge
+- **Multi-language TikTok UI**: Finds Block / Unblock when TikTok is not in English; Advanced selectors still override
 - **Cross-browser Compatibility**: Tampermonkey version works in Chrome, Firefox, Safari, Edge, and more
 
 ## 📁 Project Structure
@@ -382,6 +383,12 @@ If you're still having issues:
 4. Open an issue on the GitHub repository with detailed information
 
 ## 📈 Version History
+
+### v0.9.0
+
+- Match TikTok’s Block / Unblock menu labels across common UI languages (not English-only).
+- Extension live block path uses the Advanced **Block menu item** selector (Pick/Save works for any language).
+- Shared multi-locale label lists for Block, Unblock, and confirm text fallbacks in the extension and Tampermonkey.
 
 ### v0.8.0
 
