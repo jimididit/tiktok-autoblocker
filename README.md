@@ -141,9 +141,9 @@ TikTok’s **full data archive** can include a **Block List** (date + username).
 1. In the **TikTok app**: Profile → **Menu (☰)** → **Settings and privacy** → **Account** → **Download your data**.
 2. Request your data and choose the **full archive** (or ensure “Block list” / blocked accounts are included if TikTok lets you pick categories).
 3. When TikTok emails you (often within a few days), download the ZIP they provide.
-4. Open the ZIP and look for a file related to **Block list** or **blocked accounts** (e.g. `Block list.txt`, `blocked_accounts.json`, or similar — names may vary by region/version).
+4. Open the ZIP and look for a file related to **Block list** or **blocked accounts** (e.g. `Block list.txt`, `blocked_accounts.json`, or similar - names may vary by region/version).
 5. If the file is **one username per line** (or one per line in a column), save it as a `.txt` and use **Upload Block List (.txt)** in the extension.
-6. If the file is **JSON** (e.g. `[{"date":"...","username":"..."}]`), use the extension’s **Upload Block List** and choose the JSON file — the extension can parse TikTok-style export files. Or copy the `username` values into a plain text file, one per line, and upload that.
+6. If the file is **JSON** (e.g. `[{"date":"...","username":"..."}]`), use the extension’s **Upload Block List** and choose the JSON file - the extension can parse TikTok-style export files. Or copy the `username` values into a plain text file, one per line, and upload that.
 
 *Note: If your export doesn’t include a block list, request the full archive; the Block List is part of the full archive in TikTok’s data portability.*
 
@@ -249,7 +249,7 @@ Your blocklist text file should contain usernames, one per line:
 ## 🔌 Compatibility
 
 - **TikTok web**: The extension is built for TikTok’s website (`*.tiktok.com`). It relies on page structure (e.g. `[data-e2e="user-more"]`, Block/Unblock buttons). If TikTok changes their HTML or layout, blocking may stop working until the extension is updated.
-- **Current status**: Tested with TikTok web as of 2025. If you see “Could not find more options button” or blocking never starts, TikTok may have changed their UI — open an issue with your region and what you see on profile pages.
+- **Current status**: Tested with TikTok web as of 2025. If you see “Could not find more options button” or blocking never starts, TikTok may have changed their UI - open an issue with your region and what you see on profile pages.
 - **Chrome**: Manifest V3; requires Chrome (or a Chromium-based browser that supports the same extension APIs).
 
 ## 🔧 Technical Details

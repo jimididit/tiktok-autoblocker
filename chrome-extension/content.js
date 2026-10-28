@@ -240,7 +240,7 @@ function checkForPostNavigationTask() {
         const onProfilePage = isTikTokProfilePage();
         const paused = !!result.autoBlockPaused;
 
-        // If we're not on a profile page (e.g. homepage, explore), never redirect – clear stuck session to stop reload loop
+        // If we're not on a profile page (e.g. homepage, explore), never redirect - clear stuck session to stop reload loop
         if (!onProfilePage && (task?.username || queue.length > 0)) {
             clearStuckBlockingSession('not on a profile page (avoid redirect loop)');
             return;

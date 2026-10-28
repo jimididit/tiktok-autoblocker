@@ -94,7 +94,7 @@
 
         const who = task && task.username ? (' · now @' + profileHandle(task.username)) : '';
         statusEl.textContent = paused
-            ? ('Paused — ' + remaining + ' left' + who)
+            ? ('Paused - ' + remaining + ' left' + who)
             : (remaining + ' left' + who);
         pauseBtn.disabled = paused;
         resumeBtn.disabled = !paused;
@@ -104,7 +104,7 @@
         const remaining = remainingBlockCount(readQueue(), readCurrentTask());
         setPaused(true);
         if (remaining > 0) {
-            updateStatus('Pause requested — finishes current profile, then stops. ' + remaining + ' left.', 'warning');
+            updateStatus('Pause requested - finishes current profile, then stops. ' + remaining + ' left.', 'warning');
         } else {
             updateStatus('Nothing in the queue to pause.', 'info');
         }
@@ -120,7 +120,7 @@
             return;
         }
         setPaused(false);
-        updateStatus('Resuming — ' + remaining + ' left.', 'info');
+        updateStatus('Resuming - ' + remaining + ' left.', 'info');
         if (task && task.username) {
             checkForPostNavigationTask();
         } else {
@@ -135,7 +135,7 @@
     function checkForPostNavigationTask() {
         if (isPaused()) {
             const left = remainingBlockCount(readQueue(), readCurrentTask());
-            updateStatus('Paused — ' + left + ' left. Click Resume to continue.', 'warning');
+            updateStatus('Paused - ' + left + ' left. Click Resume to continue.', 'warning');
             refreshQueueControls();
             return;
         }
@@ -572,7 +572,7 @@
         if (isPaused()) {
             const left = remainingBlockCount(readQueue(), null);
             pageStorage.removeItem('autoBlock');
-            updateStatus('Paused — ' + left + ' left. Click Resume to continue.', 'warning');
+            updateStatus('Paused - ' + left + ' left. Click Resume to continue.', 'warning');
             refreshQueueControls();
             return;
         }
@@ -1242,7 +1242,7 @@
             const list = JSON.parse(pageStorage.getItem(blockListKey) || '[]');
             countEl.textContent = String(list.length);
         } catch (e) {
-            countEl.textContent = '—';
+            countEl.textContent = '-';
         }
     }
 
@@ -1425,10 +1425,10 @@
         toggle.className = 'ttab-icon-btn';
         toggle.setAttribute('aria-expanded', 'true');
         toggle.setAttribute('aria-label', 'Collapse panel');
-        toggle.textContent = '–';
+        toggle.textContent = '-';
         toggle.addEventListener('click', function() {
             const collapsed = card.classList.toggle('ttab-collapsed');
-            toggle.textContent = collapsed ? '+' : '–';
+            toggle.textContent = collapsed ? '+' : '-';
             toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
             toggle.setAttribute('aria-label', collapsed ? 'Expand panel' : 'Collapse panel');
             try {
