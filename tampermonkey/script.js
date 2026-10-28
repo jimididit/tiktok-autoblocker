@@ -1472,7 +1472,7 @@
 
         const hint = document.createElement('p');
         hint.className = 'ttab-hint';
-        hint.textContent = 'Leave empty for built-in selectors. Pick, then click the control on the page.';
+        hint.textContent = 'Use this when blocking fails after a TikTok redesign. Leave empty for built-in matching. Prefer Pick: click Pick, then click the control on the page. For Block, open the Actions menu first so the row is visible, then Save selectors.';
         panel.appendChild(hint);
 
         function group(text) {

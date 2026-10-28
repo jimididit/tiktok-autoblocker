@@ -154,7 +154,15 @@ function testSelectors() {
                     }
                     return 'not visible';
                 }
-                updateStatus('Actions: ' + firstHit(response.more) + '\nBlock item: ' + firstHit(response.block) + '\nConfirm: ' + firstHit(response.confirm) + '\nBlocked-account username: ' + firstHit(response.blockedAccount || []), 'info');
+                updateStatus(
+                    'On this page now:\n' +
+                    'Actions: ' + firstHit(response.more) + '\n' +
+                    'Block item: ' + firstHit(response.block) + '\n' +
+                    'Confirm: ' + firstHit(response.confirm) + '\n' +
+                    'Blocked-account username: ' + firstHit(response.blockedAccount || []) + '\n' +
+                    'If Block says not visible, open the Actions menu on the profile, then Test again.',
+                    'info'
+                );
             });
         });
     });
@@ -168,7 +176,7 @@ function pickSelector(slot) {
                     updateStatus(CONTENT_SCRIPT_MISSING_MSG, 'error');
                     return;
                 }
-                updateStatus('Click that control on the TikTok page. Reopen the popup to see the saved selector.', 'info');
+                updateStatus('Popup closed for Pick. Click that control on the TikTok page, then reopen this popup and Save selectors.', 'info');
             });
         });
     });

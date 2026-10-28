@@ -28,6 +28,7 @@ A powerful tool for mass blocking TikTok users with support for both Chrome exte
 - **Queue Management**: Robust task queue system for processing large lists
 - **Pause / Resume**: Stop after the current profile; remaining count on the extension badge
 - **Multi-language TikTok UI**: Finds Block / Unblock when TikTok is not in English; Advanced selectors still override
+- **Page selectors**: If TikTok redesigns Actions / Block / Confirm, use Pick in Advanced to point at the new controls (no code edit)
 - **Cross-browser Compatibility**: Tampermonkey version works in Chrome, Firefox, Safari, Edge, and more
 
 ## 📁 Project Structure
@@ -248,8 +249,8 @@ Your blocklist text file should contain usernames, one per line:
 
 ## 🔌 Compatibility
 
-- **TikTok web**: The extension is built for TikTok’s website (`*.tiktok.com`). It relies on page structure (e.g. `[data-e2e="user-more"]`, Block/Unblock buttons). If TikTok changes their HTML or layout, blocking may stop working until the extension is updated.
-- **Current status**: Tested with TikTok web as of 2025. If you see “Could not find more options button” or blocking never starts, TikTok may have changed their UI - open an issue with your region and what you see on profile pages.
+- **TikTok web**: Built for TikTok’s website (`*.tiktok.com`). Blocking uses on-page controls (Actions, Block, Confirm). If TikTok changes those controls, you can usually fix it yourself with **Page selectors** (see below) without waiting for a new release.
+- **Current status**: Checked against TikTok web in 2026. If built-in matching still fails after updating Page selectors, [open an issue](https://github.com/jimididit/tiktok-autoblocker/issues) with your region, TikTok UI language, and what you see on the profile.
 - **Chrome**: Manifest V3; requires Chrome (or a Chromium-based browser that supports the same extension APIs).
 
 ## 🔧 Technical Details
@@ -281,7 +282,26 @@ Both versions use a 3-step blocking sequence. Checked against TikTok web on Sept
 
 A plain element click does not open that menu. TikTok draws it from the button's React handler, and the extension reaches that handler through `page-world.js`. The script waits until the live Actions button is hydrated, which matters on large profiles that replace the first button they paint.
 
-If TikTok changes those controls, open **Page selectors** in the extension popup or the userscript card. **Blocking a profile** is the Actions, Block, and Confirm controls. **Blocked accounts page** is the username element on `tiktok.com/setting/block-list` (`h3[data-e2e="block-user-username"]`). Pick the new element and save. Empty fields keep the built-in selectors. Profile links are always opened as `https://www.tiktok.com/@username`, including lists that omit the `@`.
+Profile links are always opened as `https://www.tiktok.com/@username`, including lists that omit the `@`.
+
+### When TikTok changes the page (Page selectors)
+
+You do not need to edit code. Both the Chrome popup and the Tampermonkey card have **Advanced · Page selectors**. Leave fields empty to use the built-in matchers (including common Block/Unblock languages). Use **Pick** when a step fails.
+
+**Blocking a profile** (do this on a normal profile page while logged in):
+
+1. Open the extension popup (or expand Page selectors on the userscript card).
+2. Open **Advanced · Page selectors**.
+3. For **Actions (⋯) button**: click **Pick**, then click the ⋯ / Actions control on the profile. The popup closes for Pick; reopen it afterward.
+4. For **Block menu item**: open the Actions menu on the profile first so Block is visible, click **Pick**, then click the Block row.
+5. For **Confirm Block button**: start a block until the confirm dialog appears (or use a test profile), click **Pick**, then click Confirm.
+6. Click **Save selectors**.
+7. Optional: **Test on this page** (extension) to see which selectors match right now.
+8. If something is wrong, **Reset to defaults** and try again, or [open an issue](https://github.com/jimididit/tiktok-autoblocker/issues).
+
+**Blocked accounts page** (`tiktok.com/setting/block-list`): use **Username** + **Pick** on one username in the list so **Add my blocked accounts** keeps working after TikTok restyles that page.
+
+You should not need to type CSS by hand. Pick builds the selector for you.
 
 ### Private Account Detection
 
@@ -335,8 +355,9 @@ Both versions handle various TikTok URL formats:
 **Blocking not working:**
 
 - Reload the extension at `chrome://extensions/`, then refresh the TikTok tab. `page-world.js` loads with the page, so a reload alone is not enough.
-- Ensure you're on a TikTok profile page
-- "Could not find block option" means the Actions menu did not show a Block row. Large profiles can paint that button before it is clickable; the current script waits for the live button.
+- Ensure you're on a TikTok profile page.
+- If you see “Could not find more options button”, “Could not find block option”, or confirm never appears, TikTok’s controls likely moved. Fix it with **Advanced · Page selectors** (Pick, click the control, then Save). Full steps: [When TikTok changes the page](#when-tiktok-changes-the-page-page-selectors).
+- "Could not find block option" can also mean the Actions menu never showed a Block row (wrong page, already blocked as Unblock, or a language/label miss). Try Pick on the Block row with the menu open.
 - The saved list is in the extension's `chrome.storage.local` (`tiktokBlockList`), not the page's `localStorage`. The page console cannot read `chrome.storage`.
 
 ### Tampermonkey Script Issues
@@ -352,8 +373,8 @@ Both versions handle various TikTok URL formats:
 **Blocking not working:**
 
 1. Ensure you're on a TikTok profile page
-2. Check console logs for detailed error information
-3. Look for the red test box that appears for 5 seconds
+2. If Actions, Block, or Confirm cannot be found, open **Advanced · Page selectors** on the card and use **Pick** on each control (open the Actions menu before picking Block). See [When TikTok changes the page](#when-tiktok-changes-the-page-page-selectors).
+3. Check console logs for detailed error information
 4. Verify the UI card appears in the top-right corner
 
 **Script not loading:**
