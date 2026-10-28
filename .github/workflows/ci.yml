@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  pull_request_review:
+    types: [submitted]
   push:
     branches: [main]
 
@@ -41,3 +43,24 @@ jobs:
           }
           console.log('manifest ok', m.name, m.version);
           "
+
+      # Ruleset does not require GitHub "approving reviews" for everyone (owner PRs stay mergeable).
+      # Outside contributors still need a maintainer APPROVED review before this check goes green.
+      - name: Outside contributors need maintainer approval
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MAINTAINER: jimididit
+        run: |
+          if [ "$PR_AUTHOR" = "$MAINTAINER" ]; then
+            echo "Maintainer PR; no review required."
+            exit 0
+          fi
+          approvals="$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews" --jq '[.[] | select(.state == "APPROVED")] | length')"
+          if [ "$approvals" -lt 1 ]; then
+            echo "Outside contributor PRs need at least one approving review from a maintainer before merge."
+            exit 1
+          fi
+          echo "Found ${approvals} approving review(s)."
